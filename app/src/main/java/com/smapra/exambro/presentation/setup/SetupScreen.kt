@@ -389,49 +389,67 @@ fun SetupScreen(
 
                 // Footer & Manual Check Update
                 val currentYear = remember { java.util.Calendar.getInstance().get(java.util.Calendar.YEAR) }
-                Row(
+                val versionInfo = remember {
+                    val flavorName = if (com.smapra.exambro.BuildConfig.IS_LEGACY) "Android 5+" else "Android 8+"
+                    "v${com.smapra.exambro.BuildConfig.VERSION_NAME} ($flavorName)"
+                }
+
+                Column(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     Text(
                         text = "CBT SMAN 1 PRAMBON © $currentYear",
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                     )
-                    Text(
-                        text = " • ",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
-                    )
-                    TextButton(
-                        onClick = {
-                            val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
-                            @Suppress("DEPRECATION")
-                            val currentVersionCode = packageInfo.versionCode
-                            val currentVersionName = packageInfo.versionName ?: "1.0.0"
-                            viewModel.checkForUpdate(
-                                currentVersionCode = currentVersionCode,
-                                currentVersionName = currentVersionName,
-                                showDialogOnFound = true,
-                            )
-                        },
-                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
+
+                    Spacer(modifier = Modifier.height(2.dp))
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center,
                     ) {
-                        if (uiState.isCheckingUpdate) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(12.dp),
-                                strokeWidth = 1.5.dp,
-                                color = MaterialTheme.colorScheme.primary,
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                        }
                         Text(
-                            text = if (uiState.isCheckingUpdate) "Memeriksa..." else "Cek Update",
+                            text = versionInfo,
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.primary,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                             fontWeight = FontWeight.Medium,
                         )
+                        Text(
+                            text = " • ",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f),
+                        )
+                        TextButton(
+                            onClick = {
+                                val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
+                                @Suppress("DEPRECATION")
+                                val currentVersionCode = packageInfo.versionCode
+                                val currentVersionName = packageInfo.versionName ?: "1.0.0"
+                                viewModel.checkForUpdate(
+                                    currentVersionCode = currentVersionCode,
+                                    currentVersionName = currentVersionName,
+                                    showDialogOnFound = true,
+                                )
+                            },
+                            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
+                        ) {
+                            if (uiState.isCheckingUpdate) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(12.dp),
+                                    strokeWidth = 1.5.dp,
+                                    color = MaterialTheme.colorScheme.primary,
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                            }
+                            Text(
+                                text = if (uiState.isCheckingUpdate) "Memeriksa..." else "Cek Update",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Medium,
+                            )
+                        }
                     }
                 }
             }
