@@ -161,6 +161,64 @@ fun SetupScreen(
                 // Feature badges
                 FeatureBadgeRow()
 
+                // Update notification banner if update is available
+                uiState.updateInfo?.let { updateInfo ->
+                    Spacer(modifier = Modifier.height(20.dp))
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { viewModel.openUpdateDialog() },
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        ),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Surface(
+                                modifier = Modifier.size(40.dp),
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.primary,
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Refresh,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onPrimary,
+                                        modifier = Modifier.size(22.dp),
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.width(14.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Pembaruan v${updateInfo.versionName} Siap!",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = "Klik di sini untuk langsung mengunduh update",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
+                                )
+                            }
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.size(20.dp),
+                            )
+                        }
+                    }
+                }
+
                 Spacer(modifier = Modifier.height(28.dp))
 
                 // URL Input Section
@@ -328,26 +386,60 @@ fun SetupScreen(
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // Footer
-                Text(
-                    text = "CBT SMAN 1 PRAMBON © 2024",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                    textAlign = TextAlign.Center,
+                // Footer & Manual Check Update
+                Row(
                     modifier = Modifier.fillMaxWidth(),
-                )
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = "CBT SMAN 1 PRAMBON © 2024",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                    )
+                    Text(
+                        text = " • ",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                    )
+                    TextButton(
+                        onClick = {
+                            val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
+                            @Suppress("DEPRECATION")
+                            val currentVersionCode = packageInfo.versionCode
+                            viewModel.checkForUpdate(currentVersionCode, showDialogOnFound = true)
+                        },
+                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
+                    ) {
+                        if (uiState.isCheckingUpdate) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(12.dp),
+                                strokeWidth = 1.5.dp,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                        }
+                        Text(
+                            text = if (uiState.isCheckingUpdate) "Memeriksa..." else "Cek Update",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Medium,
+                        )
+                    }
+                }
             }
         }
 
         // Update notification dialog
-        uiState.updateInfo?.let { updateInfo ->
+        if (uiState.showUpdateDialog && uiState.updateInfo != null) {
+            val updateInfo = uiState.updateInfo!!
             UpdateAvailableDialog(
                 versionName = updateInfo.versionName,
                 releaseNotes = updateInfo.releaseNotes,
                 isDownloading = uiState.isDownloadingUpdate,
                 downloadProgress = uiState.updateDownloadProgress,
                 onUpdate = { viewModel.downloadAndInstall(context) },
-                onDismiss = { viewModel.dismissUpdate() },
+                onDismiss = { viewModel.dismissUpdateDialog() },
             )
         }
 

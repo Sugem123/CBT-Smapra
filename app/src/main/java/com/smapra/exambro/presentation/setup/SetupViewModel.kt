@@ -24,6 +24,8 @@ data class SetupUiState(
     val urlError: String? = null,
     val isLoading: Boolean = false,
     val updateInfo: UpdateInfo? = null,
+    val showUpdateDialog: Boolean = false,
+    val isCheckingUpdate: Boolean = false,
     val updateDownloadProgress: Float = 0f,
     val isDownloadingUpdate: Boolean = false,
 )
@@ -108,11 +110,28 @@ class SetupViewModel @Inject constructor(
         }
     }
 
-    fun checkForUpdate(currentVersionCode: Int) {
+    fun checkForUpdate(currentVersionCode: Int, showDialogOnFound: Boolean = true) {
         viewModelScope.launch {
+            _uiState.update { it.copy(isCheckingUpdate = true) }
             val info = appUpdater.checkForUpdate(currentVersionCode)
-            _uiState.update { it.copy(updateInfo = info) }
+            _uiState.update {
+                it.copy(
+                    updateInfo = info,
+                    showUpdateDialog = if (info != null) showDialogOnFound else false,
+                    isCheckingUpdate = false,
+                )
+            }
         }
+    }
+
+    fun openUpdateDialog() {
+        if (_uiState.value.updateInfo != null) {
+            _uiState.update { it.copy(showUpdateDialog = true) }
+        }
+    }
+
+    fun dismissUpdateDialog() {
+        _uiState.update { it.copy(showUpdateDialog = false) }
     }
 
     fun downloadAndInstall(context: android.content.Context) {
@@ -128,10 +147,6 @@ class SetupViewModel @Inject constructor(
                 appUpdater.installApk(context, apkFile)
             }
         }
-    }
-
-    fun dismissUpdate() {
-        _uiState.update { it.copy(updateInfo = null) }
     }
 
     private fun normalizeUrl(url: String): String {
