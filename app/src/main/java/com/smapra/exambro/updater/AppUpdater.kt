@@ -33,7 +33,10 @@ class AppUpdater @Inject constructor() {
             "https://api.github.com/repos/$GITHUB_OWNER/$GITHUB_REPO/releases"
     }
 
-    suspend fun checkForUpdate(currentVersionCode: Int): UpdateInfo? = withContext(Dispatchers.IO) {
+    suspend fun checkForUpdate(
+        currentVersionCode: Int,
+        currentVersionName: String = "",
+    ): UpdateInfo? = withContext(Dispatchers.IO) {
         try {
             val url = URL("$RELEASES_URL?per_page=1")
             val conn = url.openConnection() as HttpURLConnection
@@ -57,37 +60,55 @@ class AppUpdater @Inject constructor() {
             val body = latest.optString("body", "")
             val publishedAt = latest.optString("published_at", "")
 
-            // Parse version code from tag: v1.1.0 → extract or use assets
-            val versionName = tagName.removePrefix("v")
-            val remoteVersionCode = parseVersionCode(versionName)
+            val cleanRemoteVersion = tagName.trimStart('v', 'V')
+            val cleanCurrentVersion = currentVersionName.trimStart('v', 'V')
 
-            if (remoteVersionCode <= currentVersionCode) {
-                Log.d(TAG, "Up to date: local=$currentVersionCode remote=$remoteVersionCode")
+            val hasUpdate = if (cleanCurrentVersion.isNotBlank()) {
+                compareSemVer(cleanRemoteVersion, cleanCurrentVersion) > 0
+            } else {
+                val remoteVersionCode = parseVersionCode(cleanRemoteVersion)
+                remoteVersionCode > currentVersionCode
+            }
+
+            if (!hasUpdate) {
+                Log.d(TAG, "Up to date: local=$currentVersionName remote=$cleanRemoteVersion")
                 return@withContext null
             }
 
-            // Find APK asset
+            // Find APK asset matched with platform architecture/SDK
             val assets = latest.getJSONArray("assets")
+            val isModernDevice = android.os.Build.VERSION.SDK_INT >= 26
+            val preferredTag = if (isModernDevice) "Android8+" else "Android5+"
+
             var apkUrl: String? = null
+            var fallbackApkUrl: String? = null
+
             for (i in 0 until assets.length()) {
                 val asset = assets.getJSONObject(i)
                 val name = asset.getString("name")
                 if (name.endsWith(".apk")) {
-                    apkUrl = asset.getString("browser_download_url")
-                    break
+                    val downloadUrl = asset.getString("browser_download_url")
+                    if (fallbackApkUrl == null) fallbackApkUrl = downloadUrl
+
+                    if (name.contains(preferredTag, ignoreCase = true)) {
+                        apkUrl = downloadUrl
+                        break
+                    }
                 }
             }
 
-            if (apkUrl == null) {
+            val finalApkUrl = apkUrl ?: fallbackApkUrl
+
+            if (finalApkUrl == null) {
                 Log.w(TAG, "No APK asset found in release $tagName")
                 return@withContext null
             }
 
             UpdateInfo(
-                versionName = versionName,
-                versionCode = remoteVersionCode,
+                versionName = cleanRemoteVersion,
+                versionCode = parseVersionCode(cleanRemoteVersion),
                 releaseNotes = body,
-                apkDownloadUrl = apkUrl,
+                apkDownloadUrl = finalApkUrl,
                 publishedAt = publishedAt,
             )
         } catch (e: Exception) {
@@ -147,6 +168,21 @@ class AppUpdater @Inject constructor() {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION
         }
         context.startActivity(intent)
+    }
+
+    private fun compareSemVer(v1: String, v2: String): Int {
+        val parts1 = v1.split(".").map { it.filter { ch -> ch.isDigit() }.toIntOrNull() ?: 0 }
+        val parts2 = v2.split(".").map { it.filter { ch -> ch.isDigit() }.toIntOrNull() ?: 0 }
+        val maxLen = maxOf(parts1.size, parts2.size)
+
+        for (i in 0 until maxLen) {
+            val p1 = parts1.getOrElse(i) { 0 }
+            val p2 = parts2.getOrElse(i) { 0 }
+            if (p1 != p2) {
+                return p1.compareTo(p2)
+            }
+        }
+        return 0
     }
 
     private fun parseVersionCode(versionName: String): Int {

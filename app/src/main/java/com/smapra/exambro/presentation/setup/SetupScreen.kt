@@ -126,7 +126,8 @@ fun SetupScreen(
         val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
         @Suppress("DEPRECATION")
         val currentVersionCode = packageInfo.versionCode
-        viewModel.checkForUpdate(currentVersionCode)
+        val currentVersionName = packageInfo.versionName ?: "1.0.0"
+        viewModel.checkForUpdate(currentVersionCode, currentVersionName)
     }
 
     LaunchedEffect(Unit) {
@@ -407,7 +408,12 @@ fun SetupScreen(
                             val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
                             @Suppress("DEPRECATION")
                             val currentVersionCode = packageInfo.versionCode
-                            viewModel.checkForUpdate(currentVersionCode, showDialogOnFound = true)
+                            val currentVersionName = packageInfo.versionName ?: "1.0.0"
+                            viewModel.checkForUpdate(
+                                currentVersionCode = currentVersionCode,
+                                currentVersionName = currentVersionName,
+                                showDialogOnFound = true,
+                            )
                         },
                         contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
                     ) {

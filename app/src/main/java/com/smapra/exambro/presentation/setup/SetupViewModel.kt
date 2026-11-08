@@ -110,10 +110,14 @@ class SetupViewModel @Inject constructor(
         }
     }
 
-    fun checkForUpdate(currentVersionCode: Int, showDialogOnFound: Boolean = true) {
+    fun checkForUpdate(
+        currentVersionCode: Int,
+        currentVersionName: String = "",
+        showDialogOnFound: Boolean = true,
+    ) {
         viewModelScope.launch {
             _uiState.update { it.copy(isCheckingUpdate = true) }
-            val info = appUpdater.checkForUpdate(currentVersionCode)
+            val info = appUpdater.checkForUpdate(currentVersionCode, currentVersionName)
             _uiState.update {
                 it.copy(
                     updateInfo = info,

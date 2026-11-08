@@ -13,7 +13,7 @@ android {
     defaultConfig {
         applicationId = "com.smapra.exambro"
         targetSdk = 35
-        versionCode = 1
+        versionCode = 10000
         versionName = "1.0.0"
         vectorDrawables.useSupportLibrary = true
     }
