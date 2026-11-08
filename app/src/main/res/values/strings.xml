@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">CBT SMAN 1 PRAMBON</string>
+    <string name="setup_title">Exam Setup</string>
+    <string name="moodle_url_label">Moodle Server URL</string>
+    <string name="moodle_url_hint">https://moodle.school.ac.id</string>
+    <string name="start_exam">Start Exam</string>
+    <string name="saved_urls">Saved URLs</string>
+    <string name="exit_exam">Exit Exam</string>
+    <string name="exit_confirm_title">Exit Exam?</string>
+    <string name="exit_confirm_message">Are you sure you want to exit the exam? Your progress may not be saved.</string>
+    <string name="cancel">Cancel</string>
+    <string name="confirm">Confirm</string>
+    <string name="security_violation">Security Violation</string>
+    <string name="violation_floating_app">Floating app detected. Please close all overlay apps.</string>
+    <string name="violation_multi_window">Multi-window mode detected. Please exit split screen.</string>
+    <string name="violation_screen_capture">Screen recording detected. Please stop recording.</string>
+    <string name="violation_pip">Picture-in-Picture mode detected.</string>
+    <string name="violation_accessibility_overlay">Suspicious accessibility overlay detected.</string>
+    <string name="violation_app_switch">App switching detected during exam.</string>
+    <string name="loading">Loading…</string>
+    <string name="url_invalid">Please enter a valid HTTPS URL</string>
+    <string name="url_empty">URL cannot be empty</string>
+    <string name="device_admin_description">CBT SMAN 1 PRAMBON memerlukan device admin untuk mode kiosk ujian yang aman.</string>
+    <string name="settings">Settings</string>
+    <string name="clear_history">Clear History</string>
+    <string name="dismiss">Dismiss</string>
+</resources>

@@ -1,0 +1,32 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- QR code scan icon -->
+    <!-- Top-left corner -->
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M3,3h5v2H5v3H3V3z" />
+    <!-- Top-right corner -->
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M16,3h5v5h-2V5h-3V3z" />
+    <!-- Bottom-left corner -->
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M3,16v5h5v-2H5v-3H3z" />
+    <!-- Bottom-right corner -->
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M21,16v5h-5v-2h3v-3h2z" />
+    <!-- QR pattern inner -->
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M7,7h4v4H7V7zM13,7h4v4h-4V7zM7,13h4v4H7v-4zM15,13h2v2h-2v-2z" />
+    <!-- Center scan line -->
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M2,11h20v2H2z"
+        android:fillAlpha="0.3" />
+</vector>
