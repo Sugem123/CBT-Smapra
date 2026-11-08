@@ -388,13 +388,14 @@ fun SetupScreen(
                 Spacer(modifier = Modifier.height(24.dp))
 
                 // Footer & Manual Check Update
+                val currentYear = remember { java.util.Calendar.getInstance().get(java.util.Calendar.YEAR) }
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        text = "CBT SMAN 1 PRAMBON © 2024",
+                        text = "CBT SMAN 1 PRAMBON © $currentYear",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                     )
