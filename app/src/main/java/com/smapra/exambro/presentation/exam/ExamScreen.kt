@@ -411,6 +411,31 @@ fun ExamScreen(
             )
         }
 
+        // ── SECRET EXIT TAP ZONE (POJOK KANAN ATAS) ──
+        // Area tak terlihat 64x64 dp di pojok kanan atas: tap 5x cepat untuk membuka PIN Proktor
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .size(64.dp)
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                ) {
+                    val now = System.currentTimeMillis()
+                    if (now - lastTapTime > 3_000L) {
+                        secretTapCount = 0
+                    }
+                    lastTapTime = now
+                    secretTapCount++
+                    if (secretTapCount >= 5) {
+                        secretTapCount = 0
+                        pinInput = ""
+                        pinError = false
+                        showPinDialog = true
+                    }
+                },
+        )
+
         // ── TOP PANEL: PENGATURAN KECERAHAN & VOLUME (DROPDOWN) ──
         Column(
             modifier = Modifier

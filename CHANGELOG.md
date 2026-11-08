@@ -7,6 +7,22 @@ dan proyek ini menggunakan [Semantic Versioning](https://semver.org/lang/id/).
 
 ---
 
+## [1.0.8] — 2026-11-08
+
+### 🔓 Pemulihan Titik Ketuk Rahasia Proktor Pojok Kanan Atas
+
+#### Diperbaiki
+- **Dual Secret Exit Tap Target**:
+  - Menempatkan kembali invisible tap area (64x64 dp) di **Pojok Kanan Atas** layar ujian.
+  - Mempertahankan tap target alternatif pada **Kotak Status Jam & Tanggal di Kiri Bawah**.
+  - Pengawas/teknisi kini dapat mengetuk **5x cepat** pada **pojok kanan atas** ATAU **kotak status kiri bawah** untuk memunculkan dialog PIN Proktor (`131313`).
+
+#### Berkas APK
+- `CBT-SMAPRA-v1.0.8-Android8+-release.apk` (32.3 MB)
+- `CBT-SMAPRA-v1.0.8-Android5+-release.apk` (20.7 MB)
+
+---
+
 ## [1.0.7] — 2026-11-08
 
 ### 🔒 Hardening Keamanan, Skala Huruf, & Stabilitas Sesi Ujian
