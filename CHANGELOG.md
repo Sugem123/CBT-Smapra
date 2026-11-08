@@ -1,0 +1,134 @@
+# CBT SMAN 1 PRAMBON — Changelog
+
+Semua perubahan penting pada aplikasi ini didokumentasikan di file ini.
+
+Format mengikuti [Keep a Changelog](https://keepachangelog.com/id-ID/1.0.0/),
+dan proyek ini menggunakan [Semantic Versioning](https://semver.org/lang/id/).
+
+---
+
+## [1.0.7] — 2026-11-08
+
+### 🔒 Hardening Keamanan, Skala Huruf, & Stabilitas Sesi Ujian
+
+#### Ditambahkan
+- **Blokir Total File Chooser / Dokumen Upload (`onShowFileChooser`)**:
+  - `WebChromeClient` secara otomatis membatalkan pemanggilan pemilihan file (`filePathCallback.onReceiveValue(null)` dan me-return `true`).
+  - Mencegah celah siswa membuka file manager, galeri foto, atau dokumen contekan dari dalam kuis Moodle.
+- **Pengunci Skala Teks & Kontrol Ukuran Huruf Soal (`textZoom = 100` + Tombol `A- / A+`)**:
+  - Kunci skala dasar teks webview ke `100%` agar tidak terpengaruh font ukuran raksasa dari pengaturan sistem Android siswa yang sering merusak layout tabel soal.
+  - Tersedia kontrol zoom manual di Top Drawer (`A-` dan `A+`) dengan rentang 80% s/d 140% untuk mempermudah siswa yang membutuhkan ukuran tulisan lebih besar tanpa merusak struktur halaman.
+- **Session Keep-Alive Otomatis (Anti-Session Expired Moodle)**:
+  - Background coroutine menyuntikkan heartbeat fetch ke endpoint session Moodle setiap 4 menit.
+  - Mencegah siswa logout otomatis atau kehilangan progres jawaban saat membaca soal esai panjang di satu halaman lebih dari 20-30 menit.
+- **Custom Offline Error Page**:
+  - Menggantikan halaman dinosaurus / error putih mentah browser Android dengan kartu gelap ramah jika Wi-Fi sekolah terputus: *"Koneksi Terputus. Pastikan terhubung ke Wi-Fi sekolah lalu tekan Refresh."*
+- **Smart BackHandler di Lembar Kuis (`attempt.php` & `summary.php`)**:
+  - Menekan tombol Back bawaan HP saat sedang mengerjakan soal akan memunculkan dialog konfirmasi keluar kuis alih-alih navigasi mundur yang berisiko mereset jawaban siswa.
+
+#### Berkas APK
+- `CBT-SMAPRA-v1.0.7-Android8+-release.apk` (32.3 MB)
+- `CBT-SMAPRA-v1.0.7-Android5+-release.apk` (20.7 MB)
+
+---
+
+## [1.0.6] — 2026-11-08
+
+### 🛡️ Penguatan Anti-Floating Apps (Zero-Overhead)
+
+#### Ditambahkan
+- **Hardware-Level Touch Obscuration Filter (`filterTouchesWhenObscured = true`)**:
+  - Menolak event sentuhan pada WebView jika terdapat jendela mengambang (floating window) atau overlay transparan di atas layar ujian. Mencegah teknik kecurangan *tapjacking*.
+- **Debounced Window Focus Detection (800ms)**:
+  - Mendeteksi hilangnya fokus jendela aplikasi (`onWindowFocusChanged(false)`) saat siswa berinteraksi dengan floating app luar.
+  - Toleransi pintar 800ms memastikan dialog sistem atau keyboard bawaan HP tidak memicu alarm palsu (*false positive*).
+  - Layar soal otomatis tertutup layar peringatan pelanggaran keamanan jika fokus hilang lebih dari 800ms.
+
+#### Berkas APK
+- `CBT-SMAPRA-v1.0.6-Android8+-release.apk`
+- `CBT-SMAPRA-v1.0.6-Android5+-release.apk`
+
+---
+
+## [1.0.5] — 2026-11-08
+
+### 🔑 Play Protect Safe & Official Keystore Signing
+
+#### Diubah / Diperbaiki
+- **Pembersihan Izin Berisiko Tinggi (False-Positive Elimination)**:
+  - Dihapus: `android.permission.PACKAGE_USAGE_STATS`.
+  - Dihapus: `ExamDeviceAdminReceiver` dan izin `android.permission.BIND_DEVICE_ADMIN`.
+  - Sistem penguncian mode kiosk beralih murni ke `startLockTask()` (App Pinning bawaan Android) yang resmi didukung tanpa memicu peringatan aplikasi berbahaya dari Google Play Protect.
+- **Tanda Tangan Resmi SMAN 1 Prambon (`smapra-release.jks`)**:
+  - Pembuatan Keystore RSA 2048-bit (SHA384withRSA) dengan masa berlaku 27 tahun: `CN=SMAN 1 Prambon, OU=IT CBT, O=SMAN 1 Prambon, L=Nganjuk, ST=Jawa Timur, C=ID`.
+  - Menggantikan Android Debug Keystore sehingga instalasi di HP siswa lancar dan bebas peringatan merah.
+
+#### Berkas APK
+- `CBT-SMAPRA-v1.0.5-Android8+-release.apk`
+- `CBT-SMAPRA-v1.0.5-Android5+-release.apk`
+
+---
+
+## [1.0.4] — 2026-11-08
+
+### 🎨 Desain Ruang Ujian Baru: Top Quick Drawer & Bottom Bar
+
+#### Ditambahkan
+- **Top Collapsible Quick Settings Drawer**:
+  - Tombol melayang `⚙ Pengaturan ▾` di tengah atas dengan animasi buka-tutup halus.
+  - **Slider Kecerahan Layar**: Mengatur terang/redupnya layar langsung di dalam ujian tanpa perlu membuka status bar Android yang terkunci.
+  - **Slider Volume Media**: Mengatur volume soal listening bahasa asing.
+- **Bottom Status Bar (2 Tingkat)**:
+  - Tingkat 1: Jam Digital real-time (`HH:mm`) dan Indikator Baterai adaptif (`⚡ / %`).
+  - Tingkat 2: Tanggal lengkap Bahasa Indonesia (`Min, 08 Nov 2026`).
+  - **Secret Exit PIN**: Mengetuk kotak status jam & tanggal sebanyak **5x cepat** akan memunculkan dialog PIN darurat pengawas (`131313`).
+- **Tombol Refresh Cepat**:
+  - Tombol `[ 🔄 Refresh ]` di kanan bawah untuk memuat ulang halaman saat koneksi Wi-Fi tersendat.
+
+#### Berkas APK
+- `CBT-SMAPRA-v1.0.4-Android8+-release.apk`
+- `CBT-SMAPRA-v1.0.4-Android5+-release.apk`
+
+---
+
+## [1.0.3] — 2026-11-08
+
+### ⏱️ Mini Status Bar (Waktu & Baterai)
+
+#### Ditambahkan
+- Kapsul status mini jam digital real-time dan indikator persentase baterai di pojok layar ujian.
+- Integrasi BroadcastReceiver untuk status charging dan kapasitas baterai.
+
+---
+
+## [1.0.2] — 2026-11-08
+
+### 📅 Tahun Hak Cipta Dinamis & Informasi Build
+
+#### Ditambahkan
+- Tampilan versi build aplikasi pada footer halaman beranda (`vX.X.X • Android 8+`).
+- Tahun copyright dinamis mengikuti kalender sistem berjalan (`Calendar.YEAR`).
+
+---
+
+## [1.0.1] — 2026-11-08
+
+### 🔄 Penyempurnaan Auto-Update GitHub Releases
+
+#### Diperbaiki
+- Sinkronisasi algoritma pembanding versi SemVer (`compareSemVer`) antara versi lokal dan rilis tag GitHub (`v1.0.X`).
+- Pilihan cerdas arsitektur file APK: otomatis mengunduh varian `Android8+` untuk perangkat Android 8.0 ke atas, dan `Android5+` untuk perangkat versi sebelumnya.
+- Penyelesaian masalah notifikasi update berulang setelah instalasi berhasil.
+
+---
+
+## [1.0.0] — 2026-11-07
+
+### 🎉 Rilis Perdana
+
+- Implementasi protokol Safe Exam Browser (SEB) dengan User-Agent `SMAPRA-CBT/1.0`.
+- Integrasi keamanan Nginx Moodle (`seb-guard.conf`).
+- Pemindai QR Code Server berbasis kamera dengan tombol aksi eksplisit di halaman utama.
+- Fitur Kiosk Mode & Anti-Screenshot (`FLAG_SECURE`).
+- Dukungan Multi-Flavor: `modern` (minSdk 26) dan `legacy` (minSdk 21).
+- Otomatisasi pemeriksaan dan instalasi pembaruan dari GitHub Releases (`Sugem123/CBT-Smapra`).
