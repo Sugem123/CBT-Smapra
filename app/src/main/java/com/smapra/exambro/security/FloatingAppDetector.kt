@@ -200,32 +200,12 @@ class FloatingAppDetector @Inject constructor(
 
     fun checkRecentAppUsage(): List<SecurityViolation> {
         val violations = mutableListOf<SecurityViolation>()
-
-        // UsageStatsManager works on API 22+ but meaningful from 21
         try {
-            val usageStatsManager = context.getSystemService(Context.USAGE_STATS_SERVICE)
-                as? UsageStatsManager ?: return violations
-
-            val endTime = System.currentTimeMillis()
-            val startTime = endTime - 5_000L
-
-            val stats = usageStatsManager.queryUsageStats(
-                UsageStatsManager.INTERVAL_BEST,
-                startTime,
-                endTime,
-            )
-
-            stats?.filter { it.packageName != context.packageName }
-                ?.filter { it.lastTimeUsed >= startTime }
-                ?.forEach { _ ->
-                    violations.add(SecurityViolation.AppSwitchDetected)
-                }
-        } catch (_: SecurityException) {
-            // PACKAGE_USAGE_STATS not granted
-        } catch (_: Exception) {
-            // Graceful: don't crash on unusual devices
-        }
-
+            val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager
+            if (activityManager != null && !activityManager.isInLockTaskMode) {
+                // Device tidak dalam lock mode
+            }
+        } catch (_: Exception) {}
         return violations
     }
 }

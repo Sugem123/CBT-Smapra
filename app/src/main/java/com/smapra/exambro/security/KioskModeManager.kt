@@ -21,22 +21,12 @@ class KioskModeManager @Inject constructor(
     private val devicePolicyManager: DevicePolicyManager =
         context.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
 
-    private val adminComponent = ComponentName(context, ExamDeviceAdminReceiver::class.java)
-
-    val isDeviceOwner: Boolean
-        get() = devicePolicyManager.isDeviceOwnerApp(context.packageName)
-
-    val isAdminActive: Boolean
-        get() = devicePolicyManager.isAdminActive(adminComponent)
+    val isDeviceOwner: Boolean = false
+    val isAdminActive: Boolean = false
 
     fun startKioskMode(activity: Activity) {
         hideSystemUI(activity)
-
-        if (isDeviceOwner) {
-            startLockTaskAsDeviceOwner(activity)
-        } else {
-            startScreenPinning(activity)
-        }
+        startScreenPinning(activity)
     }
 
     fun stopKioskMode(activity: Activity) {
@@ -46,18 +36,6 @@ class KioskModeManager @Inject constructor(
             activity.stopLockTask()
         } catch (_: Exception) {
             // Not in lock task mode
-        }
-    }
-
-    private fun startLockTaskAsDeviceOwner(activity: Activity) {
-        try {
-            devicePolicyManager.setLockTaskPackages(
-                adminComponent,
-                arrayOf(context.packageName),
-            )
-            activity.startLockTask()
-        } catch (_: Exception) {
-            startScreenPinning(activity)
         }
     }
 

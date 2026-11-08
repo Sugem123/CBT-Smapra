@@ -13,8 +13,8 @@ android {
     defaultConfig {
         applicationId = "com.smapra.exambro"
         targetSdk = 35
-        versionCode = 10004
-        versionName = "1.0.4"
+        versionCode = 10005
+        versionName = "1.0.5"
         vectorDrawables.useSupportLibrary = true
     }
 
@@ -55,14 +55,31 @@ android {
         buildConfig = true
     }
 
+    signingConfigs {
+        create("release") {
+            storeFile = file("smapra-release.jks")
+            storePassword = "smapra_cbt_pass_2026"
+            keyAlias = "smapra_cbt"
+            keyPassword = "smapra_cbt_pass_2026"
+            enableV1Signing = true
+            enableV2Signing = true
+            enableV3Signing = true
+            enableV4Signing = true
+        }
+    }
+
     buildTypes {
         release {
-            isMinifyEnabled = true
-            isShrinkResources = true
+            isMinifyEnabled = false
+            isShrinkResources = false
+            signingConfig = signingConfigs.getByName("release")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+        }
+        debug {
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 

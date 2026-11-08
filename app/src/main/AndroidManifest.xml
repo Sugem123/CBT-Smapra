@@ -7,17 +7,7 @@
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
-
-    <uses-permission
-        android:name="android.permission.PACKAGE_USAGE_STATS"
-        tools:ignore="ProtectedPermissions" />
-
-    <!-- Required for overlay detection on API 30+ -->
-    <queries>
-        <intent>
-            <action android:name="android.intent.action.MAIN" />
-        </intent>
-    </queries>
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
 
     <!-- App doesn't require camera/GPS/telephony — runs on tablets too -->
     <uses-feature android:name="android.hardware.camera" android:required="false" />
@@ -61,18 +51,6 @@
                 <data android:scheme="sebs" />
             </intent-filter>
         </activity>
-
-        <receiver
-            android:name=".security.ExamDeviceAdminReceiver"
-            android:exported="false"
-            android:permission="android.permission.BIND_DEVICE_ADMIN">
-            <meta-data
-                android:name="android.app.device_admin"
-                android:resource="@xml/device_admin_policies" />
-            <intent-filter>
-                <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
-            </intent-filter>
-        </receiver>
 
         <provider
             android:name="androidx.core.content.FileProvider"
