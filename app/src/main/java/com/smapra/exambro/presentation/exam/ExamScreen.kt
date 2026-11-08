@@ -93,6 +93,7 @@ import com.smapra.exambro.security.SEBCompatibility
 import com.smapra.exambro.security.SecurityViolation
 import com.smapra.exambro.util.PlatformCompat
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 // PIN rahasia untuk teknisi/proktor keluar dari mode ujian
 private const val PROCTOR_PIN = "131313"
@@ -192,9 +193,31 @@ fun ExamScreen(
     }
 
     // Anti-sleep: keep screen on during exam
-    DisposableEffect(Unit) {
+    val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
+    DisposableEffect(activity) {
+        val mainActivity = activity as? com.smapra.exambro.presentation.MainActivity
+        var focusLostJob: kotlinx.coroutines.Job? = null
+
+        mainActivity?.setExamActive(true)
+        mainActivity?.onFocusChangedListener = { hasFocus ->
+            if (!hasFocus) {
+                // Beri toleransi 800ms agar keyboard sistem/dialog permission tidak memicu false alarm
+                focusLostJob?.cancel()
+                focusLostJob = coroutineScope.launch {
+                    delay(800L)
+                    viewModel.onAppPaused()
+                }
+            } else {
+                // Fokus kembali sebelum 800ms -> batalkan alarm
+                focusLostJob?.cancel()
+            }
+        }
+
         activity.window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         onDispose {
+            focusLostJob?.cancel()
+            mainActivity?.onFocusChangedListener = null
+            mainActivity?.setExamActive(false)
             activity.window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         }
     }
@@ -266,6 +289,7 @@ fun ExamScreen(
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.MATCH_PARENT,
                     )
+                    filterTouchesWhenObscured = true
 
                     settings.apply {
                         javaScriptEnabled = true

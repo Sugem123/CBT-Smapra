@@ -90,11 +90,11 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    var onFocusChangedListener: ((Boolean) -> Unit)? = null
+
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
-        if (!hasFocus && isInExam) {
-            // Focus lost during exam — potential violation
-        }
+        onFocusChangedListener?.invoke(hasFocus)
     }
 
     fun setExamActive(active: Boolean) {
