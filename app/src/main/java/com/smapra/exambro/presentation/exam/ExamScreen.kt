@@ -25,6 +25,17 @@ import android.os.BatteryManager
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import android.media.AudioManager
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.border
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
+import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.width
 import androidx.compose.ui.draw.clip
@@ -56,6 +67,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -73,6 +85,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -104,16 +117,33 @@ fun ExamScreen(
     var pinInput by remember { mutableStateOf("") }
     var pinError by remember { mutableStateOf(false) }
 
-    // Status bar mini: waktu & baterai
+    // Status bar: waktu, tanggal & baterai
     var currentTime by remember {
         mutableStateOf(SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date()))
+    }
+    var currentDate by remember {
+        mutableStateOf(SimpleDateFormat("EEE, dd MMM yyyy", Locale("id", "ID")).format(Date()))
     }
     var batteryPercentage by remember { mutableStateOf(100) }
     var isBatteryCharging by remember { mutableStateOf(false) }
 
+    // Dropdown Settings: Kecerahan & Volume
+    var showSettingsDrawer by remember { mutableStateOf(false) }
+    val audioManager = remember { context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager }
+    val maxVolume = remember { audioManager?.getStreamMaxVolume(AudioManager.STREAM_MUSIC) ?: 15 }
+    var currentVolume by remember {
+        mutableStateOf(audioManager?.getStreamVolume(AudioManager.STREAM_MUSIC)?.toFloat() ?: 7f)
+    }
+    var currentBrightness by remember {
+        val attrBrightness = activity.window.attributes.screenBrightness
+        mutableStateOf(if (attrBrightness in 0.05f..1.0f) attrBrightness else 0.7f)
+    }
+
     LaunchedEffect(Unit) {
         while (true) {
-            currentTime = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
+            val now = Date()
+            currentTime = SimpleDateFormat("HH:mm", Locale.getDefault()).format(now)
+            currentDate = SimpleDateFormat("EEE, dd MMM yyyy", Locale("id", "ID")).format(now)
             delay(10_000L) // perbarui setiap 10 detik
         }
     }
@@ -342,66 +372,242 @@ fun ExamScreen(
             )
         }
 
-        // Status Bar Mini (Waktu & Baterai) + Secret exit tap zone
-        // Tap 5x cepat (dalam 3 detik) untuk buka PIN dialog
-        Box(
+        // ── TOP PANEL: PENGATURAN KECERAHAN & VOLUME (DROPDOWN) ──
+        Column(
             modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(top = 8.dp, end = 12.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(androidx.compose.ui.graphics.Color(0x99000000))
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                ) {
-                    val now = System.currentTimeMillis()
-                    if (now - lastTapTime > 3_000L) {
-                        secretTapCount = 0
-                    }
-                    lastTapTime = now
-                    secretTapCount++
-                    if (secretTapCount >= 5) {
-                        secretTapCount = 0
-                        pinInput = ""
-                        pinError = false
-                        showPinDialog = true
-                    }
-                }
-                .padding(horizontal = 8.dp, vertical = 4.dp),
+                .align(Alignment.TopCenter)
+                .padding(top = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            // Tombol Toggle Kapsul Kecil
+            Surface(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(20.dp))
+                    .clickable { showSettingsDrawer = !showSettingsDrawer },
+                shape = RoundedCornerShape(20.dp),
+                color = Color(0xCC0F172A),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0x33FFFFFF)),
+                tonalElevation = 4.dp,
             ) {
-                // Waktu
-                Text(
-                    text = currentTime,
-                    color = androidx.compose.ui.graphics.Color.White,
-                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
-                )
-
-                Text(
-                    text = "•",
-                    color = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.5f),
-                    style = MaterialTheme.typography.labelSmall,
-                )
-
-                // Indikator Baterai
-                val batteryColor = when {
-                    isBatteryCharging -> androidx.compose.ui.graphics.Color(0xFF4CAF50)
-                    batteryPercentage <= 20 -> androidx.compose.ui.graphics.Color(0xFFFF5252)
-                    batteryPercentage <= 40 -> androidx.compose.ui.graphics.Color(0xFFFFB74D)
-                    else -> androidx.compose.ui.graphics.Color.White
-                }
-
                 Row(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(3.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
+                    Icon(
+                        imageVector = Icons.Filled.Settings,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(15.dp),
+                    )
                     Text(
-                        text = if (isBatteryCharging) "⚡$batteryPercentage%" else "$batteryPercentage%",
-                        color = batteryColor,
+                        text = "Pengaturan",
                         style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
+                        color = Color.White,
+                    )
+                    Icon(
+                        imageVector = if (showSettingsDrawer) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
+                        contentDescription = null,
+                        tint = Color.White.copy(alpha = 0.7f),
+                        modifier = Modifier.size(16.dp),
+                    )
+                }
+            }
+
+            // Konten Panel Dropdown (Kecerahan & Volume)
+            AnimatedVisibility(
+                visible = showSettingsDrawer,
+                enter = fadeIn() + expandVertically(),
+                exit = fadeOut() + shrinkVertically(),
+            ) {
+                Card(
+                    modifier = Modifier
+                        .padding(top = 8.dp, start = 16.dp, end = 16.dp)
+                        .fillMaxWidth(0.9f),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xF00F172A)),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0x22FFFFFF)),
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        // Slider Kecerahan
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text(
+                                text = "☀️ Kecerahan Layar",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = Color.White,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                            Text(
+                                text = "${(currentBrightness * 100).toInt()}%",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color(0xFFFBBF24),
+                                fontWeight = FontWeight.Bold,
+                            )
+                        }
+                        Slider(
+                            value = currentBrightness,
+                            onValueChange = { newValue ->
+                                currentBrightness = newValue
+                                val lp = activity.window.attributes
+                                lp.screenBrightness = newValue
+                                activity.window.attributes = lp
+                            },
+                            valueRange = 0.05f..1.0f,
+                            colors = SliderDefaults.colors(
+                                thumbColor = Color(0xFFFBBF24),
+                                activeTrackColor = Color(0xFFFBBF24),
+                                inactiveTrackColor = Color(0x33FFFFFF),
+                            ),
+                        )
+
+                        // Slider Volume
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text(
+                                text = "🔊 Volume Media",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = Color.White,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                            Text(
+                                text = "${((currentVolume / maxVolume.coerceAtLeast(1)) * 100).toInt()}%",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color(0xFF60A5FA),
+                                fontWeight = FontWeight.Bold,
+                            )
+                        }
+                        Slider(
+                            value = currentVolume,
+                            onValueChange = { newVol ->
+                                currentVolume = newVol
+                                audioManager?.setStreamVolume(AudioManager.STREAM_MUSIC, newVol.toInt(), 0)
+                            },
+                            valueRange = 0f..maxVolume.toFloat(),
+                            colors = SliderDefaults.colors(
+                                thumbColor = Color(0xFF60A5FA),
+                                activeTrackColor = Color(0xFF60A5FA),
+                                inactiveTrackColor = Color(0x33FFFFFF),
+                            ),
+                        )
+                    }
+                }
+            }
+        }
+
+        // ── BOTTOM FLOATING BAR: STATUS (KIRI) & REFRESH (KANAN) ──
+        Row(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.Bottom,
+        ) {
+            // KIRI: Kotak Status 2 Tingkat (Atas: Jam & Baterai, Bawah: Tanggal)
+            // Sekaligus Secret Tap Target 5x untuk PIN Proktor
+            Surface(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(14.dp))
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                    ) {
+                        val now = System.currentTimeMillis()
+                        if (now - lastTapTime > 3_000L) {
+                            secretTapCount = 0
+                        }
+                        lastTapTime = now
+                        secretTapCount++
+                        if (secretTapCount >= 5) {
+                            secretTapCount = 0
+                            pinInput = ""
+                            pinError = false
+                            showPinDialog = true
+                        }
+                    },
+                shape = RoundedCornerShape(14.dp),
+                color = Color(0xD90F172A), // Dark translucent
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0x2EFFFFFF)),
+                tonalElevation = 6.dp,
+            ) {
+                Column(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                    horizontalAlignment = Alignment.Start,
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    // Tingkat 1: Waktu & Baterai
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        Text(
+                            text = currentTime,
+                            color = Color.White,
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                        )
+                        Text(
+                            text = "•",
+                            color = Color.White.copy(alpha = 0.4f),
+                            style = MaterialTheme.typography.labelSmall,
+                        )
+                        val batteryColor = when {
+                            isBatteryCharging -> Color(0xFF4CAF50)
+                            batteryPercentage <= 20 -> Color(0xFFFF5252)
+                            batteryPercentage <= 40 -> Color(0xFFFFB74D)
+                            else -> Color.White
+                        }
+                        Text(
+                            text = if (isBatteryCharging) "⚡$batteryPercentage%" else "$batteryPercentage%",
+                            color = batteryColor,
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                        )
+                    }
+
+                    // Tingkat 2: Tanggal
+                    Text(
+                        text = currentDate,
+                        color = Color.White.copy(alpha = 0.65f),
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                    )
+                }
+            }
+
+            // KANAN: Tombol Refresh Cantik
+            Surface(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(14.dp))
+                    .clickable { webView?.reload() },
+                shape = RoundedCornerShape(14.dp),
+                color = Color(0xD90F172A),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0x2EFFFFFF)),
+                tonalElevation = 6.dp,
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Refresh,
+                        contentDescription = "Muat Ulang Halaman",
+                        tint = Color(0xFF60A5FA),
+                        modifier = Modifier.size(17.dp),
+                    )
+                    Text(
+                        text = "Refresh",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                        color = Color.White,
                     )
                 }
             }
