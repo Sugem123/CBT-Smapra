@@ -139,6 +139,7 @@ fun ExamScreen(
         val attrBrightness = activity.window.attributes.screenBrightness
         mutableStateOf(if (attrBrightness in 0.05f..1.0f) attrBrightness else 0.7f)
     }
+    var currentTextZoom by remember { mutableStateOf(100) }
 
     LaunchedEffect(Unit) {
         while (true) {
@@ -146,6 +147,17 @@ fun ExamScreen(
             currentTime = SimpleDateFormat("HH:mm", Locale.getDefault()).format(now)
             currentDate = SimpleDateFormat("EEE, dd MMM yyyy", Locale("id", "ID")).format(now)
             delay(10_000L) // perbarui setiap 10 detik
+        }
+    }
+
+    // Keep-alive Moodle session: jalankan touch script setiap 4 menit
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(4 * 60 * 1000L) // 4 menit
+            webView?.evaluateJavascript(
+                "(function() { if (window.M && window.M.cfg) { fetch(window.M.cfg.wwwroot + '/lib/ajax/service.php', { method: 'HEAD' }).catch(function(){}); } })();",
+                null,
+            )
         }
     }
 
@@ -263,14 +275,16 @@ fun ExamScreen(
         val wv = webView
         if (wv != null && wv.canGoBack()) {
             val currentUrl = wv.url ?: ""
-            // Jika sudah di halaman utama (login/dashboard/course/view quiz),
-            // jangan goBack lagi — tampilkan exit dialog
-            val isRootPage = currentUrl.contains("/my/") ||
+            // Jika di halaman utama atau sedang di lembar kuis (attempt.php),
+            // tampilkan exit dialog konfirmasi agar siswa tidak kehilangan progres ujian secara tidak sengaja
+            val isRootOrExamPage = currentUrl.contains("/my/") ||
                 currentUrl.contains("/course/view.php") ||
                 currentUrl.contains("/mod/quiz/view.php") ||
+                currentUrl.contains("/mod/quiz/attempt.php") ||
+                currentUrl.contains("/mod/quiz/summary.php") ||
                 currentUrl.contains("/login/") ||
                 currentUrl.endsWith("/") && !currentUrl.contains("/mod/")
-            if (isRootPage) {
+            if (isRootOrExamPage) {
                 viewModel.requestExit()
             } else {
                 wv.goBack()
@@ -308,6 +322,7 @@ fun ExamScreen(
                         userAgentString = SEBCompatibility.SEB_USER_AGENT
                         cacheMode = WebSettings.LOAD_DEFAULT
                         setSupportZoom(true)
+                        textZoom = 100 // Kunci skala teks agar tidak dipengaruhi font size sistem HP
                         // Rendering optimization for older WebView
                         setRenderPriority(WebSettings.RenderPriority.HIGH)
                         setEnableSmoothTransition(true)
@@ -524,6 +539,69 @@ fun ExamScreen(
                                 inactiveTrackColor = Color(0x33FFFFFF),
                             ),
                         )
+
+                        // Kontrol Ukuran Teks Soal (Text Zoom)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text(
+                                text = "🔤 Ukuran Huruf Soal",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = Color.White,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                Surface(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .clickable {
+                                            if (currentTextZoom > 80) {
+                                                currentTextZoom -= 10
+                                                webView?.settings?.textZoom = currentTextZoom
+                                            }
+                                        },
+                                    color = Color(0x33FFFFFF),
+                                    shape = RoundedCornerShape(8.dp),
+                                ) {
+                                    Text(
+                                        text = " A- ",
+                                        color = Color.White,
+                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
+                                    )
+                                }
+                                Text(
+                                    text = "$currentTextZoom%",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = Color(0xFF34D399),
+                                    fontWeight = FontWeight.Bold,
+                                )
+                                Surface(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .clickable {
+                                            if (currentTextZoom < 140) {
+                                                currentTextZoom += 10
+                                                webView?.settings?.textZoom = currentTextZoom
+                                            }
+                                        },
+                                    color = Color(0x33FFFFFF),
+                                    shape = RoundedCornerShape(8.dp),
+                                ) {
+                                    Text(
+                                        text = " A+ ",
+                                        color = Color.White,
+                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -836,6 +914,34 @@ private fun createExamWebViewClient(
         override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
             Log.e(TAG, "WebView error: code=${error?.errorCode} desc=${error?.description} url=${request?.url}")
             super.onReceivedError(view, request, error)
+
+            // Jika main frame gagal load karena jaringan putus, suntikkan tampilan ramah
+            if (request?.isForMainFrame == true) {
+                val errorHtml = """
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                        <meta charset="utf-8">
+                        <meta name="viewport" content="width=device-width, initial-scale=1">
+                        <style>
+                            body { font-family: -apple-system, sans-serif; text-align: center; padding: 40px 16px; background: #0f172a; color: white; margin: 0; }
+                            .card { max-width: 400px; margin: 40px auto; background: #1e293b; padding: 32px 20px; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); }
+                            h2 { color: #f87171; font-size: 20px; margin-bottom: 12px; }
+                            p { color: #94a3b8; font-size: 14px; line-height: 1.6; }
+                            .btn { margin-top: 20px; display: inline-block; background: #3b82f6; color: white; padding: 12px 24px; border-radius: 12px; text-decoration: none; font-weight: bold; }
+                        </style>
+                    </head>
+                    <body>
+                        <div class="card">
+                            <div style="font-size: 48px">&#9888;</div>
+                            <h2>Koneksi Terputus</h2>
+                            <p>Tidak dapat terhubung ke server CBT.<br>Pastikan Anda terhubung ke Wi-Fi sekolah, lalu tekan tombol <b>Refresh</b> di bawah layar.</p>
+                        </div>
+                    </body>
+                    </html>
+                """.trimIndent()
+                view?.loadDataWithBaseURL(null, errorHtml, "text/html", "UTF-8", null)
+            }
         }
     }
 }
@@ -846,6 +952,17 @@ private fun createExamWebChromeClient(viewModel: ExamViewModel): WebChromeClient
         override fun onProgressChanged(view: WebView?, newProgress: Int) {
             super.onProgressChanged(view, newProgress)
             viewModel.onProgressChanged(newProgress)
+        }
+
+        // Blokir pemanggilan file chooser / upload dokumen untuk mencegah celah kecurangan
+        override fun onShowFileChooser(
+            webView: WebView?,
+            filePathCallback: android.webkit.ValueCallback<Array<android.net.Uri>>?,
+            fileChooserParams: FileChooserParams?,
+        ): Boolean {
+            filePathCallback?.onReceiveValue(null) // Batalkan langsung
+            Log.w(TAG, "File chooser blocked by security policy")
+            return true // handled, jangan biarkan sistem membuka file manager
         }
 
         override fun onConsoleMessage(consoleMessage: android.webkit.ConsoleMessage?): Boolean {
