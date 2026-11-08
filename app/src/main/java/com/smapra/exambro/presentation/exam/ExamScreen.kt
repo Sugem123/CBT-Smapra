@@ -17,12 +17,24 @@ import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.compose.BackHandler
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.os.BatteryManager
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.draw.clip
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -91,6 +103,55 @@ fun ExamScreen(
     var showPinDialog by remember { mutableStateOf(false) }
     var pinInput by remember { mutableStateOf("") }
     var pinError by remember { mutableStateOf(false) }
+
+    // Status bar mini: waktu & baterai
+    var currentTime by remember {
+        mutableStateOf(SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date()))
+    }
+    var batteryPercentage by remember { mutableStateOf(100) }
+    var isBatteryCharging by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        while (true) {
+            currentTime = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
+            delay(10_000L) // perbarui setiap 10 detik
+        }
+    }
+
+    DisposableEffect(context) {
+        val batteryReceiver = object : BroadcastReceiver() {
+            override fun onReceive(c: Context?, intent: Intent?) {
+                if (intent?.action == Intent.ACTION_BATTERY_CHANGED) {
+                    val level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
+                    val scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
+                    if (level != -1 && scale != -1) {
+                        batteryPercentage = (level * 100 / scale.toFloat()).toInt()
+                    }
+                    val status = intent.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
+                    isBatteryCharging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
+                        status == BatteryManager.BATTERY_STATUS_FULL
+                }
+            }
+        }
+        val filter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
+        val initialIntent = context.registerReceiver(batteryReceiver, filter)
+        initialIntent?.let { intent ->
+            val level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
+            val scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
+            if (level != -1 && scale != -1) {
+                batteryPercentage = (level * 100 / scale.toFloat()).toInt()
+            }
+            val status = intent.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
+            isBatteryCharging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
+                status == BatteryManager.BATTERY_STATUS_FULL
+        }
+
+        onDispose {
+            try {
+                context.unregisterReceiver(batteryReceiver)
+            } catch (_: Exception) {}
+        }
+    }
 
     LaunchedEffect(url) {
         viewModel.initExam(url)
@@ -281,12 +342,14 @@ fun ExamScreen(
             )
         }
 
-        // Secret exit tap zone — invisible 48dp box di pojok kanan atas
+        // Status Bar Mini (Waktu & Baterai) + Secret exit tap zone
         // Tap 5x cepat (dalam 3 detik) untuk buka PIN dialog
         Box(
             modifier = Modifier
                 .align(Alignment.TopEnd)
-                .size(48.dp)
+                .padding(top = 8.dp, end = 12.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(androidx.compose.ui.graphics.Color(0x99000000))
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
@@ -303,8 +366,46 @@ fun ExamScreen(
                         pinError = false
                         showPinDialog = true
                     }
-                },
-        )
+                }
+                .padding(horizontal = 8.dp, vertical = 4.dp),
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                // Waktu
+                Text(
+                    text = currentTime,
+                    color = androidx.compose.ui.graphics.Color.White,
+                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                )
+
+                Text(
+                    text = "•",
+                    color = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.5f),
+                    style = MaterialTheme.typography.labelSmall,
+                )
+
+                // Indikator Baterai
+                val batteryColor = when {
+                    isBatteryCharging -> androidx.compose.ui.graphics.Color(0xFF4CAF50)
+                    batteryPercentage <= 20 -> androidx.compose.ui.graphics.Color(0xFFFF5252)
+                    batteryPercentage <= 40 -> androidx.compose.ui.graphics.Color(0xFFFFB74D)
+                    else -> androidx.compose.ui.graphics.Color.White
+                }
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(3.dp),
+                ) {
+                    Text(
+                        text = if (isBatteryCharging) "⚡$batteryPercentage%" else "$batteryPercentage%",
+                        color = batteryColor,
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
+                    )
+                }
+            }
+        }
 
         // PIN dialog for secret exit
         if (showPinDialog) {
