@@ -78,6 +78,10 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -110,6 +114,16 @@ fun SetupScreen(
     val context = LocalContext.current
 
     var showQrScanner by remember { mutableStateOf(false) }
+
+    // Secret technician input: ketuk logo 5x cepat untuk input URL manual khusus teknisi
+    var secretLogoTapCount by remember { mutableStateOf(0) }
+    var lastLogoTapTime by remember { mutableStateOf(0L) }
+    var showTechPinDialog by remember { mutableStateOf(false) }
+    var techPinInput by remember { mutableStateOf("") }
+    var techPinError by remember { mutableStateOf(false) }
+    var showTechUrlDialog by remember { mutableStateOf(false) }
+    var techUrlInput by remember { mutableStateOf("http://sassman1prambon.sytes.net") }
+    var techUrlError by remember { mutableStateOf<String?>(null) }
 
     // Camera permission launcher
     val cameraPermissionLauncher = rememberLauncherForActivityResult(
@@ -156,7 +170,22 @@ fun SetupScreen(
                 .verticalScroll(rememberScrollState()),
         ) {
             // ── Hero Header ──
-            HeroHeader()
+            HeroHeader(
+                onLogoTap = {
+                    val now = System.currentTimeMillis()
+                    if (now - lastLogoTapTime > 3_000L) {
+                        secretLogoTapCount = 0
+                    }
+                    lastLogoTapTime = now
+                    secretLogoTapCount++
+                    if (secretLogoTapCount >= 5) {
+                        secretLogoTapCount = 0
+                        techPinInput = ""
+                        techPinError = false
+                        showTechPinDialog = true
+                    }
+                }
+            )
 
             // ── Main Content ──
             Column(
@@ -600,6 +629,129 @@ fun SetupScreen(
             }
         }
 
+        // Dialog 1: Autentikasi PIN Khusus Teknisi / Proktor (Tap 5x Logo Sekolah)
+        if (showTechPinDialog) {
+            AlertDialog(
+                onDismissRequest = {
+                    showTechPinDialog = false
+                    techPinInput = ""
+                    techPinError = false
+                },
+                title = { Text("Akses Khusus Teknisi / Proktor") },
+                text = {
+                    Column {
+                        Text(
+                            text = "Kamera HP siswa bermasalah? Masukkan PIN Proktor untuk membuka input URL manual.",
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                        Spacer(modifier = Modifier.height(14.dp))
+                        OutlinedTextField(
+                            value = techPinInput,
+                            onValueChange = {
+                                techPinInput = it
+                                techPinError = false
+                            },
+                            label = { Text("PIN Proktor") },
+                            visualTransformation = PasswordVisualTransformation(),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                            singleLine = true,
+                            isError = techPinError,
+                            supportingText = if (techPinError) {
+                                { Text("PIN salah! Akses ditolak.", color = MaterialTheme.colorScheme.error) }
+                            } else null,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            if (techPinInput == "131313") {
+                                showTechPinDialog = false
+                                techPinInput = ""
+                                techPinError = false
+                                showTechUrlDialog = true
+                            } else {
+                                techPinError = true
+                            }
+                        },
+                    ) {
+                        Text("Verifikasi")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = {
+                        showTechPinDialog = false
+                        techPinInput = ""
+                        techPinError = false
+                    }) {
+                        Text("Batal")
+                    }
+                },
+            )
+        }
+
+        // Dialog 2: Input URL Manual Oleh Teknisi (Tanpa Diketahui Siswa)
+        if (showTechUrlDialog) {
+            AlertDialog(
+                onDismissRequest = {
+                    showTechUrlDialog = false
+                    techUrlError = null
+                },
+                title = { Text("Input Alamat Server CBT") },
+                text = {
+                    Column {
+                        Text(
+                            text = "Masukkan alamat server Moodle / SEB URL untuk menghubungkan perangkat siswa ini:",
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                        Spacer(modifier = Modifier.height(14.dp))
+                        OutlinedTextField(
+                            value = techUrlInput,
+                            onValueChange = {
+                                techUrlInput = it
+                                techUrlError = null
+                            },
+                            label = { Text("Alamat Server") },
+                            placeholder = { Text("http://sassman1prambon.sytes.net") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+                            singleLine = true,
+                            isError = techUrlError != null,
+                            supportingText = techUrlError?.let { err ->
+                                { Text(err, color = MaterialTheme.colorScheme.error) }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            val trimmed = techUrlInput.trim()
+                            if (trimmed.isBlank()) {
+                                techUrlError = "Alamat server tidak boleh kosong"
+                            } else {
+                                showTechUrlDialog = false
+                                techUrlError = null
+                                // Panggil langsung proses masuk ujian
+                                viewModel.onScanQr(trimmed)
+                            }
+                        },
+                    ) {
+                        Text("Mulai Ujian")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = {
+                        showTechUrlDialog = false
+                        techUrlError = null
+                    }) {
+                        Text("Batal")
+                    }
+                },
+            )
+        }
+
         // Update notification dialog
         if (uiState.showUpdateDialog && uiState.updateInfo != null) {
             val updateInfo = uiState.updateInfo!!
@@ -748,7 +900,9 @@ private fun UpdateAvailableDialog(
 }
 
 @Composable
-private fun HeroHeader() {
+private fun HeroHeader(
+    onLogoTap: () -> Unit = {},
+) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -787,7 +941,7 @@ private fun HeroHeader() {
                 .padding(top = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            // Logo with elegant shadow
+            // Logo with elegant shadow + Secret tap detector for technician
             Image(
                 painter = painterResource(id = R.drawable.logo_school),
                 contentDescription = "Logo",
@@ -800,7 +954,12 @@ private fun HeroHeader() {
                         spotColor = Gold400.copy(alpha = 0.25f),
                     )
                     .clip(CircleShape)
-                    .border(2.dp, Gold400.copy(alpha = 0.3f), CircleShape),
+                    .border(2.dp, Gold400.copy(alpha = 0.3f), CircleShape)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = onLogoTap,
+                    ),
             )
 
             Spacer(modifier = Modifier.height(16.dp))

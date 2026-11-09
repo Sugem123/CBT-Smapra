@@ -7,6 +7,24 @@ dan proyek ini menggunakan [Semantic Versioning](https://semver.org/lang/id/).
 
 ---
 
+## [1.1.2] — 2026-11-09
+
+### 🔑 Akses Tersembunyi Khusus Teknisi (Bypass Kamera Rusak)
+
+#### Ditambahkan
+- **Fitur Hidden Tap Logo Sekolah (5x Cepat)**:
+  - Mengatasi kendala beberapa HP siswa yang kameranya rusak/buram/error sehingga tidak bisa memindai QR Code.
+  - Pengawas/teknisi cukup mengetuk **Logo Sekolah SMAN 1 Prambon** di bagian atas beranda sebanyak **5x cepat**.
+  - Memunculkan dialog autentikasi **PIN Proktor** (`131313`).
+  - Setelah verifikasi PIN berhasil, muncul dialog khusus bagi teknisi untuk memasukkan URL server Moodle secara manual.
+  - Siswa tetap tidak mengetahui URL server karena input dilakukan oleh teknisi dan tidak pernah disimpan ke riwayat perangkat.
+
+#### Berkas APK
+- `CBT-SMAPRA-v1.1.2-Android8+-release.apk` (32.4 MB)
+- `CBT-SMAPRA-v1.1.2-Android5+-release.apk` (20.8 MB)
+
+---
+
 ## [1.1.1] — 2026-11-09
 
 ### 🌐 Integrasi Moodle CBT Control Panel & Whitelist Aplikasi
