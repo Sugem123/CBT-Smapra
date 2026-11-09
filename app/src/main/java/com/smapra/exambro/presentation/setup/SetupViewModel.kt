@@ -20,9 +20,8 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 data class SetupUiState(
-    val url: String = "",
-    val urlError: String? = null,
     val isLoading: Boolean = false,
+    val errorMessage: String? = null,
     val updateInfo: UpdateInfo? = null,
     val showUpdateDialog: Boolean = false,
     val isCheckingUpdate: Boolean = false,
@@ -47,67 +46,57 @@ class SetupViewModel @Inject constructor(
     private val _events = MutableSharedFlow<SetupEvent>()
     val events = _events.asSharedFlow()
 
-    val savedUrls: StateFlow<Set<String>> = examPreferences.savedUrls
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
-
     init {
+        // Bersihkan riwayat URL lama agar siswa tidak dapat melihat/mengakses alamat server
         viewModelScope.launch {
-            examPreferences.lastUrl.collect { lastUrl ->
-                if (lastUrl.isNotBlank() && _uiState.value.url.isBlank()) {
-                    _uiState.update { it.copy(url = lastUrl) }
-                }
-            }
+            examPreferences.clearSavedUrls()
         }
     }
 
-    fun onUrlChanged(url: String) {
-        _uiState.update { it.copy(url = url, urlError = null) }
-    }
-
-    fun onStartExam() {
-        val url = _uiState.value.url.trim()
-
-        if (url.isBlank()) {
-            _uiState.update { it.copy(urlError = "URL tidak boleh kosong") }
+    /**
+     * Dipanggil saat QR Code berhasil dipindai oleh kamera.
+     * Langsung memvalidasi dan login/navigasi ke ruang ujian tanpa menampilkan URL ke siswa.
+     */
+    fun onScanQr(scannedText: String) {
+        val raw = scannedText.trim()
+        if (raw.isBlank()) {
+            _uiState.update { it.copy(errorMessage = "QR Code kosong atau tidak terbaca") }
             return
         }
 
-        val normalizedUrl = normalizeUrl(url)
+        // Handle skema SEB jika ada
+        val resolvedUrl = if (raw.startsWith("seb://", ignoreCase = true) || raw.startsWith("sebs://", ignoreCase = true)) {
+            sebCompatibility.parseSebUrl(raw) ?: raw
+        } else {
+            raw
+        }
+
+        val normalizedUrl = normalizeUrl(resolvedUrl)
 
         if (!isValidUrl(normalizedUrl)) {
-            _uiState.update { it.copy(urlError = "Masukkan URL yang valid") }
+            _uiState.update {
+                it.copy(
+                    errorMessage = "QR Code tidak valid. Pastikan memindai QR Code resmi dari pengawas ujian.",
+                )
+            }
             return
         }
 
-        _uiState.update { it.copy(isLoading = true, urlError = null, url = normalizedUrl) }
+        _uiState.update { it.copy(isLoading = true, errorMessage = null) }
 
         viewModelScope.launch {
-            examPreferences.saveUrl(normalizedUrl)
             val domain = sebCompatibility.extractDomainFromUrl(normalizedUrl)
             if (domain != null) {
                 examPreferences.saveAllowedDomains(setOf(domain))
             }
+            // Langsung navigasi ke ruang ujian
             _events.emit(SetupEvent.NavigateToExam(normalizedUrl))
             _uiState.update { it.copy(isLoading = false) }
         }
     }
 
-    fun onSebUrl(sebUrl: String) {
-        val httpUrl = sebCompatibility.parseSebUrl(sebUrl)
-        if (httpUrl != null) {
-            _uiState.update { it.copy(url = httpUrl) }
-            onStartExam()
-        }
-    }
-
-    fun onSelectSavedUrl(url: String) {
-        _uiState.update { it.copy(url = url, urlError = null) }
-    }
-
-    fun onClearHistory() {
-        viewModelScope.launch {
-            examPreferences.clearSavedUrls()
-        }
+    fun dismissError() {
+        _uiState.update { it.copy(errorMessage = null) }
     }
 
     fun checkForUpdate(

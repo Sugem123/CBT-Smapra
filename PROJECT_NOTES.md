@@ -2,7 +2,7 @@
 *Dokumen ini dibuat untuk mempermudah pelacakan konteks, debugging, dan transfer pekerjaan ke developer / AI agent berikutnya.*
 
 Terakhir Diperbarui: **November 2026**  
-Status: **Production-Ready (v1.0.7)**  
+Status: **Production-Ready (v1.0.9)**  
 Repositori GitHub: [`Sugem123/CBT-Smapra`](https://github.com/Sugem123/CBT-Smapra)
 
 ---
@@ -102,6 +102,7 @@ ExamBro/
 - **v1.0.6**: Penguatan Anti-Floating Apps (Touch Obscuration Filter + Window Focus 800ms debouncer).
 - **v1.0.7**: Blokir pemanggilan file upload (`onShowFileChooser`), pengunci skala font (`textZoom = 100` + Tombol `A-/A+`), session keep-alive otomatis (4 menit), dan halaman kustom saat koneksi terputus.
 - **v1.0.8**: Dual secret exit tap target (Pojok Kanan Atas 64x64 dp & Kotak Status Kiri Bawah, tap 5x untuk PIN Proktor 131313).
+- **v1.0.9**: Menghapus input manual URL dan histori, beralih penuh ke scan QR Code langsung masuk (Direct Login), alamat server Moodle disembunyikan total agar siswa tidak mengetahui URL dan wajib scan ulang ke pengawas jika keluar aplikasi.
 
 ---
 

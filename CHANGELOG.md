@@ -7,6 +7,30 @@ dan proyek ini menggunakan [Semantic Versioning](https://semver.org/lang/id/).
 
 ---
 
+## [1.0.9] — 2026-11-09
+
+### 📷 Mode Masuk Eksklusif Scan QR Code & Sembunyikan URL Server
+
+#### Diubah / Ditingkatkan
+- **Penghapusan Kolom Input URL Manual**:
+  - Kolom teks input URL dan tombol mulai manual telah dihapus dari antarmuka beranda.
+  - Alamat server CBT Moodle disembunyikan total agar siswa tidak mengetahui alamat IP maupun domain server sekolah.
+- **Penghapusan Riwayat Tersimpan (Saved URLs)**:
+  - Kartu riwayat URL dan preferensi lokal dibersihkan total saat aplikasi dibuka.
+  - Mencegah siswa memilih kembali alamat yang pernah dimasukkan sebelumnya.
+- **Alur Masuk Otomatis (Scan & Direct Login)**:
+  - Akses ujian kini **wajib melalui pemindaian QR Code resmi dari pengawas di depan kelas**.
+  - Begitu kamera mendeteksi QR Code server, aplikasi langsung memvalidasi dan memuat ruang ujian seketika tanpa jeda atau konfirmasi tambahan.
+- **Pencegahan Siswa Keluar-Masuk Aplikasi Seenaknya**:
+  - Jika siswa keluar dari ujian (misalnya setelah selesai atau proktor membuka kunci), aplikasi kembali ke beranda dalam kondisi bersih tanpa teks URL.
+  - Siswa yang keluar wajib maju ke meja pengawas di depan kelas untuk memindai ulang QR Code jika ingin masuk kembali.
+
+#### Berkas APK
+- `CBT-SMAPRA-v1.0.9-Android8+-release.apk` (32.4 MB)
+- `CBT-SMAPRA-v1.0.9-Android5+-release.apk` (20.8 MB)
+
+---
+
 ## [1.0.8] — 2026-11-08
 
 ### 🔓 Pemulihan Titik Ketuk Rahasia Proktor Pojok Kanan Atas
