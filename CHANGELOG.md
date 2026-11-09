@@ -7,6 +7,31 @@ dan proyek ini menggunakan [Semantic Versioning](https://semver.org/lang/id/).
 
 ---
 
+## [1.1.0] — 2026-11-09
+
+### 🛡️ Pre-Exam Anti-Floating Threat Gate (Kunci Total Aplikasi Melayang)
+
+#### Ditambahkan
+- **Izin Visibilitas Paket Penuh (`QUERY_ALL_PACKAGES` + `<queries>`)**:
+  - Mengatasi pembatasan *Package Visibility* di Android 11 s/d Android 16 (API 30–36) agar sistem dapat memindai 100% seluruh aplikasi pihak ketiga yang terpasang di HP siswa.
+- **Audit Izin `SYSTEM_ALERT_WINDOW` Tanpa Pengecualian**:
+  - Mendeteksi setiap aplikasi pihak ketiga (selain aplikasi vendor resmi) yang memiliki status izin "Tampilkan di atas aplikasi lain" aktif (`MODE_ALLOWED`).
+- **Database Blacklist By-Name & Keyword Scanner Populer**:
+  - Memasukkan daftar hitam aplikasi floating populer Play Store: `com.lwi.android.flapps` (Floating Apps), `com.applay.overlay`, `com.leo.floating.browser`, `com.floating.tube`, `free.tube.premium.advanced.tuber`, `com.shy.floatingcalc`, `com.directchat.android`, dll.
+  - Memindai nama aplikasi berbasis kata kunci: `"floating"`, `"float"`, `"overlay"`, `"bubble"`, `"popup"`, `"multitask"`, `"pip"`, `"tuber"`, `"split screen"`.
+- **Pre-Exam Security Card (Blokir Total di Halaman Depan)**:
+  - Jika terdeteksi ada aplikasi floating atau izin overlay aktif di HP siswa:
+    - Tombol "Pindai QR Code Server" **dikunci total / dinonaktifkan**.
+    - Muncul **Kartu Merah Peringatan Keamanan** yang menampilkan daftar nama aplikasi yang terdeteksi beserta alasannya.
+    - Disediakan tombol langsung **"Atur / Buka Pengaturan HP"** untuk mempermudah siswa mencabut izin overlay atau meng-uninstall aplikasi.
+    - Tombol **"Pindai Ulang"** & observer otomatis (`ON_RESUME`) yang memulihkan akses begitu aplikasi terlarang telah dibersihkan dari HP siswa.
+
+#### Berkas APK
+- `CBT-SMAPRA-v1.1.0-Android8+-release.apk` (32.4 MB)
+- `CBT-SMAPRA-v1.1.0-Android5+-release.apk` (20.8 MB)
+
+---
+
 ## [1.0.9] — 2026-11-09
 
 ### 📷 Mode Masuk Eksklusif Scan QR Code & Sembunyikan URL Server

@@ -4,17 +4,17 @@ import android.util.Patterns
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.smapra.exambro.data.ExamPreferences
+import com.smapra.exambro.security.FloatingAppDetector
 import com.smapra.exambro.security.SEBCompatibility
+import com.smapra.exambro.security.ThreatAppInfo
 import com.smapra.exambro.updater.AppUpdater
 import com.smapra.exambro.updater.UpdateInfo
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -22,6 +22,7 @@ import javax.inject.Inject
 data class SetupUiState(
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
+    val detectedThreats: List<ThreatAppInfo> = emptyList(),
     val updateInfo: UpdateInfo? = null,
     val showUpdateDialog: Boolean = false,
     val isCheckingUpdate: Boolean = false,
@@ -37,6 +38,7 @@ sealed class SetupEvent {
 class SetupViewModel @Inject constructor(
     private val examPreferences: ExamPreferences,
     private val sebCompatibility: SEBCompatibility,
+    private val floatingAppDetector: FloatingAppDetector,
     private val appUpdater: AppUpdater,
 ) : ViewModel() {
 
@@ -51,6 +53,18 @@ class SetupViewModel @Inject constructor(
         viewModelScope.launch {
             examPreferences.clearSavedUrls()
         }
+        // Pindai aplikasi melayang / overlay terlarang di HP siswa saat awal buka
+        scanThreats()
+    }
+
+    /**
+     * Memindai aplikasi terlarang di HP siswa.
+     */
+    fun scanThreats() {
+        viewModelScope.launch {
+            val threats = floatingAppDetector.scanInstalledThreats()
+            _uiState.update { it.copy(detectedThreats = threats) }
+        }
     }
 
     /**
@@ -58,6 +72,18 @@ class SetupViewModel @Inject constructor(
      * Langsung memvalidasi dan login/navigasi ke ruang ujian tanpa menampilkan URL ke siswa.
      */
     fun onScanQr(scannedText: String) {
+        // Jika masih ada aplikasi floating terlarang, tolak akses ujian!
+        val currentThreats = floatingAppDetector.scanInstalledThreats()
+        if (currentThreats.isNotEmpty()) {
+            _uiState.update {
+                it.copy(
+                    detectedThreats = currentThreats,
+                    errorMessage = "Ujian diblokir! Masih ada aplikasi melayang yang terpasang di HP Anda.",
+                )
+            }
+            return
+        }
+
         val raw = scannedText.trim()
         if (raw.isBlank()) {
             _uiState.update { it.copy(errorMessage = "QR Code kosong atau tidak terbaca") }
