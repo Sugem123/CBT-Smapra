@@ -73,12 +73,18 @@ class SetupViewModel @Inject constructor(
     }
 
     /**
-     * Mengambil konfigurasi dinamis blacklist & whitelist aplikasi dari server Moodle jika tersedia
+     * Mengambil konfigurasi dinamis blacklist & whitelist aplikasi dari server Moodle jika tersedia.
+     * Mendukung IP Lokal sekolah (misal: http://192.168.x.x) maupun Domain Publik (sassman1prambon.sytes.net).
      */
-    private suspend fun fetchServerCbtConfig() = withContext(Dispatchers.IO) {
+    private suspend fun fetchServerCbtConfig(customUrl: String? = null) = withContext(Dispatchers.IO) {
         try {
-            val lastUrl = examPreferences.lastUrl
-            val urlStr = "http://sassman1prambon.sytes.net/local/bulkquiz/api_cbt_config.php"
+            val targetBaseUrl = customUrl ?: "http://sassman1prambon.sytes.net"
+            val uri = android.net.Uri.parse(targetBaseUrl)
+            val scheme = uri.scheme ?: "http"
+            val host = uri.host ?: return@withContext
+            val port = if (uri.port != -1) ":${uri.port}" else ""
+            val urlStr = "$scheme://$host$port/local/bulkquiz/api_cbt_config.php"
+
             val conn = URL(urlStr).openConnection() as HttpURLConnection
             conn.connectTimeout = 3000
             conn.readTimeout = 3000
@@ -151,6 +157,11 @@ class SetupViewModel @Inject constructor(
         _uiState.update { it.copy(isLoading = true, errorMessage = null) }
 
         viewModelScope.launch {
+            // Simpan lastUrl agar diketahui host lokalnya untuk sinkronisasi berikutnya
+            examPreferences.saveUrl(normalizedUrl)
+            // Sinkronkan konfigurasi blacklist/whitelist dari server lokal/internet yang baru di-scan
+            fetchServerCbtConfig(normalizedUrl)
+
             val domain = sebCompatibility.extractDomainFromUrl(normalizedUrl)
             if (domain != null) {
                 examPreferences.saveAllowedDomains(setOf(domain))

@@ -118,6 +118,10 @@ fun ExamScreen(
     var pinInput by remember { mutableStateOf("") }
     var pinError by remember { mutableStateOf(false) }
 
+    // Dialog Keluar Siswa (Wajib Token Pengawas)
+    var studentExitTokenInput by remember { mutableStateOf("") }
+    var studentExitTokenError by remember { mutableStateOf(false) }
+
     // Status bar: waktu, tanggal & baterai
     var currentTime by remember {
         mutableStateOf(SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date()))
@@ -387,15 +391,52 @@ fun ExamScreen(
             )
         }
 
-        // Exit confirmation dialog
+        // Exit confirmation dialog (Wajib Memasukkan Token Pengawas untuk Keluar)
         if (uiState.showExitDialog) {
             AlertDialog(
-                onDismissRequest = viewModel::dismissExitDialog,
-                title = { Text("Keluar Ujian?") },
-                text = { Text("Apakah Anda yakin ingin keluar? Progres ujian mungkin tidak tersimpan.") },
+                onDismissRequest = {
+                    studentExitTokenInput = ""
+                    studentExitTokenError = false
+                    viewModel.dismissExitDialog()
+                },
+                title = { Text("Konfirmasi Keluar Ujian") },
+                text = {
+                    Column {
+                        Text(
+                            text = "Untuk keluar dari mode ujian, masukkan Token Keluar yang diberikan oleh pengawas ruangan:",
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                        Spacer(modifier = Modifier.height(14.dp))
+                        OutlinedTextField(
+                            value = studentExitTokenInput,
+                            onValueChange = {
+                                studentExitTokenInput = it.uppercase()
+                                studentExitTokenError = false
+                            },
+                            label = { Text("Token Keluar Ujian") },
+                            placeholder = { Text("Minta ke pengawas") },
+                            singleLine = true,
+                            isError = studentExitTokenError,
+                            supportingText = if (studentExitTokenError) {
+                                { Text("Token keluar salah atau tidak berlaku!", color = MaterialTheme.colorScheme.error) }
+                            } else null,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                },
                 confirmButton = {
                     Button(
-                        onClick = viewModel::confirmExit,
+                        onClick = {
+                            val entered = studentExitTokenInput.trim().uppercase()
+                            val validTokens = uiState.validExitTokens.map { it.uppercase() }
+                            if (entered.isNotEmpty() && validTokens.contains(entered)) {
+                                studentExitTokenInput = ""
+                                studentExitTokenError = false
+                                viewModel.confirmExit()
+                            } else {
+                                studentExitTokenError = true
+                            }
+                        },
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.error,
                         ),
@@ -404,7 +445,11 @@ fun ExamScreen(
                     }
                 },
                 dismissButton = {
-                    TextButton(onClick = viewModel::dismissExitDialog) {
+                    TextButton(onClick = {
+                        studentExitTokenInput = ""
+                        studentExitTokenError = false
+                        viewModel.dismissExitDialog()
+                    }) {
                         Text("Batal")
                     }
                 },

@@ -40,6 +40,7 @@ data class ExamUiState(
     val currentViolations: List<SecurityViolation> = emptyList(),
     val showExitDialog: Boolean = false,
     val canGoBack: Boolean = false,
+    val validExitTokens: Set<String> = setOf("SMAPRA", "131313"),
 )
 
 sealed class ExamEvent {
@@ -70,6 +71,46 @@ class ExamViewModel @Inject constructor(
                 url = url,
                 examState = ExamState.LOADING,
             )
+        }
+        // Ambil konfigurasi token keluar yang sah dari server CBT
+        fetchCbtExitTokens(url)
+    }
+
+    private fun fetchCbtExitTokens(examUrl: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val uri = android.net.Uri.parse(examUrl)
+                val scheme = uri.scheme ?: "http"
+                val host = uri.host ?: return@launch
+                val port = if (uri.port != -1) ":${uri.port}" else ""
+                val endpoint = "$scheme://$host$port/local/bulkquiz/api_cbt_config.php"
+
+                val url = URL(endpoint)
+                val conn = url.openConnection() as HttpURLConnection
+                conn.connectTimeout = 3000
+                conn.readTimeout = 3000
+                conn.requestMethod = "GET"
+                if (conn.responseCode == 200) {
+                    val resp = conn.inputStream.bufferedReader().readText()
+                    val json = org.json.JSONObject(resp)
+                    if (json.optBoolean("success")) {
+                        val tokensJson = json.optJSONArray("exit_tokens")
+                        val tokensSet = mutableSetOf("SMAPRA", "131313")
+                        if (tokensJson != null) {
+                            for (i in 0 until tokensJson.length()) {
+                                val t = tokensJson.getString(i).trim().uppercase()
+                                if (t.isNotEmpty()) {
+                                    tokensSet.add(t)
+                                }
+                            }
+                        }
+                        _uiState.update { it.copy(validExitTokens = tokensSet) }
+                        android.util.Log.d("ExamViewModel", "Loaded valid exit tokens from server: $tokensSet")
+                    }
+                }
+            } catch (e: Exception) {
+                android.util.Log.w("ExamViewModel", "Failed to load exit tokens from server: ${e.message}")
+            }
         }
     }
 

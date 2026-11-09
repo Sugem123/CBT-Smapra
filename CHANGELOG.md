@@ -7,6 +7,31 @@ dan proyek ini menggunakan [Semantic Versioning](https://semver.org/lang/id/).
 
 ---
 
+## [1.1.3] — 2026-11-09
+
+### 🌐 Kompatibilitas Jaringan Lokal Offline & Otorisasi Token Keluar
+
+#### Ditambahkan
+- **Dukungan Penuh Jaringan Lokal (Tanpa Internet)**:
+  - Komunikasi endpoint kontrol CBT (`api_cbt_config.php` dan `api_cbt_violation.php`) kini secara dinamis mengikuti host server yang sedang diakses (baik IP lokal sekolah misal `http://192.168.x.x` maupun domain internet publik).
+  - Pengecekan whitelist, blacklist, dan pelaporan pelanggaran tetap berjalan 100% normal pada jaringan LAN/Wi-Fi lokal sekolah tanpa koneksi internet.
+- **Otorisasi Token Keluar Siswa (Wajib Izin Pengawas)**:
+  - Tombol keluar dan tombol Back tidak lagi langsung menutup ujian.
+  - Muncul dialog: *"Untuk keluar dari mode ujian, masukkan Token Keluar yang diberikan oleh pengawas ruangan"*.
+  - Token divalidasi terhadap:
+    1. **Token AutoToken Sistem Moodle** yang aktif saat itu.
+    2. **Token Manual Pengawas** yang diatur di Moodle CBT Control Panel.
+  - Siswa tidak dapat keluar dari ujian jika belum meminta token kepada pengawas.
+- **Pengaturan Token Keluar di Moodle CBT Control Panel**:
+  - Pilihan mode token: *Token Sistem + Manual*, *Hanya Token Sistem*, atau *Hanya Token Manual*.
+  - Menampilkan daftar token aktif yang dapat dibagikan pengawas kepada siswa yang telah selesai ujian.
+
+#### Berkas APK
+- `CBT-SMAPRA-v1.1.3-Android8+-release.apk` (32.4 MB)
+- `CBT-SMAPRA-v1.1.3-Android5+-release.apk` (20.8 MB)
+
+---
+
 ## [1.1.2] — 2026-11-09
 
 ### 🔑 Akses Tersembunyi Khusus Teknisi (Bypass Kamera Rusak)
