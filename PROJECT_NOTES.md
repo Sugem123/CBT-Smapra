@@ -2,7 +2,7 @@
 *Dokumen ini dibuat untuk mempermudah pelacakan konteks, debugging, dan transfer pekerjaan ke developer / AI agent berikutnya.*
 
 Terakhir Diperbarui: **November 2026**  
-Status: **Production-Ready (v1.1.4)**  
+Status: **Production-Ready (v1.1.5)**  
 Repositori GitHub: [`Sugem123/CBT-Smapra`](https://github.com/Sugem123/CBT-Smapra)
 
 ---
@@ -108,6 +108,7 @@ ExamBro/
 - **v1.1.2**: Hidden Technician Bypass: Ketuk 5x pada Logo Sekolah di beranda memunculkan otentikasi PIN Proktor (`131313`) untuk input URL server manual khusus bagi siswa yang kameranya rusak/error, tanpa membocorkan URL kepada siswa.
 - **v1.1.3**: Kompatibilitas Jaringan Lokal Offline (IP lokal dan internet) untuk seluruh sinkronisasi CBT, serta Otorisasi Token Keluar Siswa (Siswa wajib memasukkan token sistem/manual dari pengawas untuk keluar ujian).
 - **v1.1.4**: Dukungan Input IP Lokal Langsung tanpa awalan http:// (IPv4 auto-normalize), dan Pengaturan PIN Proktor Dinamis langsung dari Moodle CBT Control Panel.
+- **v1.1.5**: Sinkronisasi token keluar realtime (60 detik + live validation saat submit token), perbaikan tombol Refresh dengan animasi putar nyata, dan filter presisi pada onReceivedError untuk mencegah false alarm 'Koneksi Terputus'.
 
 ---
 

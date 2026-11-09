@@ -73,50 +73,87 @@ class ExamViewModel @Inject constructor(
                 examState = ExamState.LOADING,
             )
         }
-        // Ambil konfigurasi token keluar yang sah dari server CBT
-        fetchCbtExitTokens(url)
+        // Ambil konfigurasi token keluar yang sah dari server CBT dan mulai loop sinkronisasi berkala
+        startTokenSyncLoop(url)
     }
 
-    private fun fetchCbtExitTokens(examUrl: String) {
-        viewModelScope.launch(Dispatchers.IO) {
-            try {
-                val uri = android.net.Uri.parse(examUrl)
-                val scheme = uri.scheme ?: "http"
-                val host = uri.host ?: return@launch
-                val port = if (uri.port != -1) ":${uri.port}" else ""
-                val endpoint = "$scheme://$host$port/local/bulkquiz/api_cbt_config.php"
+    private var tokenSyncJob: kotlinx.coroutines.Job? = null
 
-                val url = URL(endpoint)
-                val conn = url.openConnection() as HttpURLConnection
-                conn.connectTimeout = 3000
-                conn.readTimeout = 3000
-                conn.requestMethod = "GET"
-                if (conn.responseCode == 200) {
-                    val resp = conn.inputStream.bufferedReader().readText()
-                    val json = org.json.JSONObject(resp)
-                    if (json.optBoolean("success")) {
-                        val tokensJson = json.optJSONArray("exit_tokens")
-                        val tokensSet = mutableSetOf("SMAPRA", "131313")
-                        if (tokensJson != null) {
-                            for (i in 0 until tokensJson.length()) {
-                                val t = tokensJson.getString(i).trim().uppercase()
-                                if (t.isNotEmpty()) {
-                                    tokensSet.add(t)
-                                }
-                            }
-                        }
-                        val pin = json.optString("proctor_pin", "131313")
-                        if (pin.isNotBlank()) {
-                            tokensSet.add(pin.trim().uppercase())
-                        }
-                        _uiState.update { it.copy(validExitTokens = tokensSet, proctorPin = pin) }
-                        android.util.Log.d("ExamViewModel", "Loaded valid exit tokens from server: $tokensSet (PIN: $pin)")
-                    }
-                }
-            } catch (e: Exception) {
-                android.util.Log.w("ExamViewModel", "Failed to load exit tokens from server: ${e.message}")
+    private fun startTokenSyncLoop(examUrl: String) {
+        tokenSyncJob?.cancel()
+        tokenSyncJob = viewModelScope.launch(Dispatchers.IO) {
+            while (true) {
+                fetchCbtExitTokensDirect(examUrl)
+                // Sinkronkan token dan PIN setiap 60 detik agar jika token berganti (15 menit),
+                // siswa dapat langsung keluar dengan token baru tanpa perlu restart app
+                kotlinx.coroutines.delay(60_000L)
             }
         }
+    }
+
+    private suspend fun fetchCbtExitTokensDirect(examUrl: String): Boolean = withContext(Dispatchers.IO) {
+        try {
+            if (examUrl.isBlank()) return@withContext false
+            val uri = android.net.Uri.parse(examUrl)
+            val scheme = uri.scheme ?: "http"
+            val host = uri.host ?: return@withContext false
+            val port = if (uri.port != -1) ":${uri.port}" else ""
+            val endpoint = "$scheme://$host$port/local/bulkquiz/api_cbt_config.php"
+
+            val url = URL(endpoint)
+            val conn = url.openConnection() as HttpURLConnection
+            conn.connectTimeout = 3000
+            conn.readTimeout = 3000
+            conn.requestMethod = "GET"
+            if (conn.responseCode == 200) {
+                val resp = conn.inputStream.bufferedReader().readText()
+                val json = org.json.JSONObject(resp)
+                if (json.optBoolean("success")) {
+                    val tokensJson = json.optJSONArray("exit_tokens")
+                    val tokensSet = mutableSetOf("SMAPRA", "131313")
+                    if (tokensJson != null) {
+                        for (i in 0 until tokensJson.length()) {
+                            val t = tokensJson.getString(i).trim().uppercase()
+                            if (t.isNotEmpty()) {
+                                tokensSet.add(t)
+                            }
+                        }
+                    }
+                    val pin = json.optString("proctor_pin", "131313")
+                    if (pin.isNotBlank()) {
+                        tokensSet.add(pin.trim().uppercase())
+                    }
+                    _uiState.update { it.copy(validExitTokens = tokensSet, proctorPin = pin) }
+                    android.util.Log.d("ExamViewModel", "Synced exit tokens from server: $tokensSet (PIN: $pin)")
+                    return@withContext true
+                }
+            }
+        } catch (e: Exception) {
+            android.util.Log.w("ExamViewModel", "Failed to sync exit tokens: ${e.message}")
+        }
+        return@withContext false
+    }
+
+    /**
+     * Memvalidasi token keluar yang dimasukkan siswa.
+     * Jika tidak cocok dengan token lokal, lakukan fetch instan ke server (live validation).
+     */
+    suspend fun validateAndExit(inputToken: String): Boolean = withContext(Dispatchers.IO) {
+        val entered = inputToken.trim().uppercase()
+        if (entered.isBlank()) return@withContext false
+
+        // 1. Cek terhadap cache lokal terlebih dahulu
+        val currentTokens = _uiState.value.validExitTokens.map { it.uppercase() }.toSet()
+        if (currentTokens.contains(entered)) {
+            return@withContext true
+        }
+
+        // 2. Jika tidak cocok (kemungkinan token baru saja berubah di Moodle), tarik langsung ke server detik ini
+        val currentUrl = _uiState.value.url
+        fetchCbtExitTokensDirect(currentUrl)
+
+        val freshTokens = _uiState.value.validExitTokens.map { it.uppercase() }.toSet()
+        return@withContext freshTokens.contains(entered)
     }
 
     fun onPageStarted() {
@@ -252,6 +289,10 @@ class ExamViewModel @Inject constructor(
 
     fun requestExit() {
         _uiState.update { it.copy(showExitDialog = true) }
+        // Sinkronkan token terbaru seketika saat tombol keluar ditekan
+        viewModelScope.launch {
+            fetchCbtExitTokensDirect(_uiState.value.url)
+        }
     }
 
     fun dismissExitDialog() {

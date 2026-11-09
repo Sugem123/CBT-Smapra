@@ -7,6 +7,28 @@ dan proyek ini menggunakan [Semantic Versioning](https://semver.org/lang/id/).
 
 ---
 
+## [1.1.5] — 2026-11-09
+
+### 🔄 Sinkronisasi Realtime Token Keluar, Animasi Refresh & Filter Error Jaringan
+
+#### Diperbaiki
+- **Sinkronisasi Token Keluar Real-time (AutoToken 15 Menit)**:
+  - Mengatasi kendala token keluar tidak berlaku saat sistem AutoToken Moodle berganti setiap 15 menit.
+  - Penambahan background polling sinkronisasi setiap **60 detik**.
+  - Sinkronisasi instan seketika saat tombol "Keluar" ditekan (`requestExit()`).
+  - **Live Validation**: Jika token yang dimasukkan siswa belum tercatat di cache lokal, aplikasi langsung memverifikasi ke server Moodle detik itu juga sebelum menolak. Siswa tidak perlu keluar paksa / restart aplikasi.
+- **Animasi Visual Tombol Refresh Nyata**:
+  - Tombol Refresh di kanan bawah kini dilengkapi animasi putaran 360° (`rotateAngle`) dan perubahan teks menjadi `"Memuat..."` selama proses reload berlangsung sehingga siswa melihat respons nyata saat tombol ditekan.
+- **Pembersihan False Alarm "Koneksi Terputus"**:
+  - Filter `onReceivedError` diperketat: hanya error fatal koneksi (`ERROR_CONNECT`, `ERROR_HOST_LOOKUP`, `ERROR_TIMEOUT`) pada *main frame* yang memicu halaman peringatan.
+  - Masalah koneksi sementara seperti pembatalan reload (error code -1), kegagalan aset gambar/font minor, atau reload cepat tidak akan lagi menimpa halaman kuis dengan pesan koneksi terputus.
+
+#### Berkas APK
+- `CBT-SMAPRA-v1.1.5-Android8+-release.apk` (32.4 MB)
+- `CBT-SMAPRA-v1.1.5-Android5+-release.apk` (20.8 MB)
+
+---
+
 ## [1.1.4] — 2026-11-09
 
 ### 🌐 Dukungan Input IP Lokal Langsung & Pengaturan PIN Proktor via Web

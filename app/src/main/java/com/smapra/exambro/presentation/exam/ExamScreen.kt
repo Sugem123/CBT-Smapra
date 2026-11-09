@@ -27,6 +27,12 @@ import java.util.Date
 import java.util.Locale
 import android.media.AudioManager
 import androidx.compose.animation.expandVertically
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.draw.rotate
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.border
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -428,13 +434,19 @@ fun ExamScreen(
                     Button(
                         onClick = {
                             val entered = studentExitTokenInput.trim().uppercase()
-                            val validTokens = uiState.validExitTokens.map { it.uppercase() }
-                            if (entered.isNotEmpty() && validTokens.contains(entered)) {
-                                studentExitTokenInput = ""
-                                studentExitTokenError = false
-                                viewModel.confirmExit()
-                            } else {
+                            if (entered.isBlank()) {
                                 studentExitTokenError = true
+                                return@Button
+                            }
+                            coroutineScope.launch {
+                                val isValid = viewModel.validateAndExit(entered)
+                                if (isValid) {
+                                    studentExitTokenInput = ""
+                                    studentExitTokenError = false
+                                    viewModel.confirmExit()
+                                } else {
+                                    studentExitTokenError = true
+                                }
                             }
                         },
                         colors = ButtonDefaults.buttonColors(
@@ -755,11 +767,25 @@ fun ExamScreen(
                 }
             }
 
-            // KANAN: Tombol Refresh Cantik
+            // KANAN: Tombol Refresh Cantik dengan Animasi Berputar Nyata
+            val isRefreshing = uiState.examState == ExamState.LOADING
+            val infiniteTransition = rememberInfiniteTransition(label = "refreshAnim")
+            val rotateAngle by infiniteTransition.animateFloat(
+                initialValue = 0f,
+                targetValue = 360f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(durationMillis = 800, easing = LinearEasing),
+                ),
+                label = "rotateAngle",
+            )
+
             Surface(
                 modifier = Modifier
                     .clip(RoundedCornerShape(14.dp))
-                    .clickable { webView?.reload() },
+                    .clickable {
+                        viewModel.onPageStarted()
+                        webView?.reload()
+                    },
                 shape = RoundedCornerShape(14.dp),
                 color = Color(0xD90F172A),
                 border = androidx.compose.foundation.BorderStroke(1.dp, Color(0x2EFFFFFF)),
@@ -773,11 +799,13 @@ fun ExamScreen(
                     Icon(
                         imageVector = Icons.Filled.Refresh,
                         contentDescription = "Muat Ulang Halaman",
-                        tint = Color(0xFF60A5FA),
-                        modifier = Modifier.size(17.dp),
+                        tint = if (isRefreshing) Color(0xFF93C5FD) else Color(0xFF60A5FA),
+                        modifier = Modifier
+                            .size(17.dp)
+                            .rotate(if (isRefreshing) rotateAngle else 0f),
                     )
                     Text(
-                        text = "Refresh",
+                        text = if (isRefreshing) "Memuat..." else "Refresh",
                         style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
                         color = Color.White,
                     )
@@ -983,35 +1011,48 @@ private fun createExamWebViewClient(
         }
 
         override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
-            Log.e(TAG, "WebView error: code=${error?.errorCode} desc=${error?.description} url=${request?.url}")
+            val errorCode = error?.errorCode ?: 0
+            val desc = error?.description?.toString() ?: ""
+            Log.e(TAG, "WebView error: code=$errorCode desc=$desc url=${request?.url}")
             super.onReceivedError(view, request, error)
 
-            // Jika main frame gagal load karena jaringan putus, suntikkan tampilan ramah
+            // Hanya tampilkan halaman error jika MAIN FRAME gagal karena benar-benar gagal koneksi jaringan fatal
+            // (Abaikan error sub-resource seperti favicon 404, tracking pixel, font gagal load, SSL warning, atau abort saat reload)
             if (request?.isForMainFrame == true) {
-                val errorHtml = """
-                    <!DOCTYPE html>
-                    <html>
-                    <head>
-                        <meta charset="utf-8">
-                        <meta name="viewport" content="width=device-width, initial-scale=1">
-                        <style>
-                            body { font-family: -apple-system, sans-serif; text-align: center; padding: 40px 16px; background: #0f172a; color: white; margin: 0; }
-                            .card { max-width: 400px; margin: 40px auto; background: #1e293b; padding: 32px 20px; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); }
-                            h2 { color: #f87171; font-size: 20px; margin-bottom: 12px; }
-                            p { color: #94a3b8; font-size: 14px; line-height: 1.6; }
-                            .btn { margin-top: 20px; display: inline-block; background: #3b82f6; color: white; padding: 12px 24px; border-radius: 12px; text-decoration: none; font-weight: bold; }
-                        </style>
-                    </head>
-                    <body>
-                        <div class="card">
-                            <div style="font-size: 48px">&#9888;</div>
-                            <h2>Koneksi Terputus</h2>
-                            <p>Tidak dapat terhubung ke server CBT.<br>Pastikan Anda terhubung ke Wi-Fi sekolah, lalu tekan tombol <b>Refresh</b> di bawah layar.</p>
-                        </div>
-                    </body>
-                    </html>
-                """.trimIndent()
-                view?.loadDataWithBaseURL(null, errorHtml, "text/html", "UTF-8", null)
+                // List error koneksi putus sesungguhnya:
+                // ERROR_CONNECT (-6), ERROR_HOST_LOOKUP (-2), ERROR_TIMEOUT (-8), ERROR_FAILED_SSL_HANDSHAKE (-11)
+                val isConnectionError = errorCode == WebViewClient.ERROR_CONNECT ||
+                    errorCode == WebViewClient.ERROR_HOST_LOOKUP ||
+                    errorCode == WebViewClient.ERROR_TIMEOUT ||
+                    errorCode == WebViewClient.ERROR_FAILED_SSL_HANDSHAKE ||
+                    errorCode == WebViewClient.ERROR_UNKNOWN
+
+                // Jangan timpa jika error hanya karena user menekan reload / abort (-1)
+                if (isConnectionError && errorCode != -1) {
+                    val errorHtml = """
+                        <!DOCTYPE html>
+                        <html>
+                        <head>
+                            <meta charset="utf-8">
+                            <meta name="viewport" content="width=device-width, initial-scale=1">
+                            <style>
+                                body { font-family: -apple-system, sans-serif; text-align: center; padding: 40px 16px; background: #0f172a; color: white; margin: 0; }
+                                .card { max-width: 400px; margin: 40px auto; background: #1e293b; padding: 32px 20px; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); }
+                                h2 { color: #f87171; font-size: 20px; margin-bottom: 12px; }
+                                p { color: #94a3b8; font-size: 14px; line-height: 1.6; }
+                            </style>
+                        </head>
+                        <body>
+                            <div class="card">
+                                <div style="font-size: 48px">&#9888;</div>
+                                <h2>Koneksi Terputus</h2>
+                                <p>Tidak dapat terhubung ke server CBT.<br>Pastikan Anda terhubung ke Wi-Fi sekolah, lalu tekan tombol <b>Refresh</b> di bawah layar.</p>
+                            </div>
+                        </body>
+                        </html>
+                    """.trimIndent()
+                    view?.loadDataWithBaseURL(null, errorHtml, "text/html", "UTF-8", null)
+                }
             }
         }
     }
