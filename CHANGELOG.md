@@ -7,6 +7,31 @@ dan proyek ini menggunakan [Semantic Versioning](https://semver.org/lang/id/).
 
 ---
 
+## [1.1.1] — 2026-11-09
+
+### 🌐 Integrasi Moodle CBT Control Panel & Whitelist Aplikasi
+
+#### Ditambahkan
+- **Whitelist Aplikasi Resmi**:
+  - Menambahkan pengecualian (*whitelist*) untuk aplikasi:
+    1. **Shopee & ShopeePay** (`com.shopee.id`, `com.shopeepay.id`)
+    2. **Musixmatch** (`com.musixmatch.android.lyrify`)
+    3. **Fly GPS** (`com.fly.gps`)
+    4. **MyTelkomsel** (`com.telkomsel.telkomselcm`)
+    5. **Location Changer** (`com.locationchanger`)
+  - Aplikasi-aplikasi di atas tidak akan lagi diblokir atau memicu peringatan di beranda.
+- **Sinkronisasi Dinamis dari Server Moodle**:
+  - Aplikasi secara otomatis mengambil konfigurasi blacklist & whitelist terbaru dari endpoint `/local/bulkquiz/api_cbt_config.php` saat memeriksa ancaman.
+- **Pelaporan Real-time Siswa Keluar Ujian (`api_cbt_violation.php`)**:
+  - Aplikasi Android secara otomatis mengirim laporan heartbeat pelanggaran setiap kali siswa terdeteksi keluar dari aplikasi, beralih window, atau membuka overlay selama ujian.
+  - Tercatat langsung ke tabel database Moodle dan masuk ke counter pelanggaran di layar pengawas.
+
+#### Berkas APK
+- `CBT-SMAPRA-v1.1.1-Android8+-release.apk` (32.4 MB)
+- `CBT-SMAPRA-v1.1.1-Android5+-release.apk` (20.8 MB)
+
+---
+
 ## [1.1.0] — 2026-11-09
 
 ### 🛡️ Pre-Exam Anti-Floating Threat Gate (Kunci Total Aplikasi Melayang)

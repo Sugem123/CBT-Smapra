@@ -106,6 +106,32 @@ class FloatingAppDetector @Inject constructor(
         "com.transsion.hilauncher", "com.infinix.", "com.itel.", "com.tecno.",
     )
 
+    // Whitelist aplikasi yang diizinkan (Shopee, Musixmatch, Fly GPS, MyTelkomsel, Location Changer)
+    private val defaultWhitelistedPackages = setOf(
+        "com.shopee.id",
+        "com.shopeepay.id",
+        "com.musixmatch.android.lyrify",
+        "com.fly.gps",
+        "com.telkomsel.telkomselcm",
+        "com.locationchanger",
+        "com.pure.indosat.care",
+        "com.apps.myxl",
+        "com.byu.id",
+        "id.dana",
+        "ovo.id",
+        "com.gojek.app",
+        "com.tokopedia.tkpd",
+    )
+
+    // Dynamic whitelist dari server Moodle (jika sudah di-fetch)
+    private var dynamicWhitelistedPackages: Set<String> = emptySet()
+    private var dynamicBlacklistedPackages: Set<String> = emptySet()
+
+    fun updateDynamicConfig(whitelist: Set<String>, blacklist: Set<String>) {
+        dynamicWhitelistedPackages = whitelist
+        dynamicBlacklistedPackages = blacklist
+    }
+
     /**
      * Memindai seluruh aplikasi di HP siswa sebelum ujian dimulai (Pre-Exam Gate).
      * Mengembalikan daftar aplikasi terlarang yang wajib dicopot/dimatikan izinnya.
@@ -121,11 +147,20 @@ class FloatingAppDetector @Inject constructor(
             emptyList()
         }
 
+        val allWhitelisted = defaultWhitelistedPackages + dynamicWhitelistedPackages
+        val allBlacklisted = (blacklistedPackages + dynamicBlacklistedPackages) - allWhitelisted
+
         for (pkgInfo in installedPackages) {
             val pkgName = pkgInfo.packageName ?: continue
             if (pkgName == context.packageName) continue
 
             val pkgLower = pkgName.lowercase()
+
+            // Jika masuk Whitelist (Shopee, Musixmatch, Fly GPS, MyTelkomsel, Location Changer), LEWATI!
+            if (allWhitelisted.contains(pkgName) || allWhitelisted.any { pkgLower == it.lowercase() }) {
+                continue
+            }
+
             // Lewati aplikasi sistem OEM murni
             if (systemPrefixes.any { pkgLower.startsWith(it) }) continue
 
@@ -142,7 +177,7 @@ class FloatingAppDetector @Inject constructor(
             val labelLower = appLabel.lowercase()
 
             // 1. Cek apakah masuk Blacklist By-Name resmi Play Store
-            if (blacklistedPackages.contains(pkgName) || blacklistedPackages.any { pkgLower.startsWith(it) }) {
+            if (allBlacklisted.contains(pkgName) || allBlacklisted.any { pkgLower.startsWith(it) }) {
                 threats.add(
                     ThreatAppInfo(
                         packageName = pkgName,
@@ -250,6 +285,8 @@ class FloatingAppDetector @Inject constructor(
             if (app.packageName == context.packageName) continue
 
             val pkgLower = app.packageName.lowercase()
+            val allWhitelisted = defaultWhitelistedPackages + dynamicWhitelistedPackages
+            if (allWhitelisted.contains(app.packageName) || allWhitelisted.any { pkgLower == it.lowercase() }) continue
             if (systemPrefixes.any { pkgLower.startsWith(it) }) continue
 
             val hasOverlayPermission = try {
@@ -300,6 +337,9 @@ class FloatingAppDetector @Inject constructor(
         val runningApps = activityManager.runningAppProcesses ?: return violations
         for (process in runningApps) {
             if (process.processName == context.packageName) continue
+            val allWhitelisted = defaultWhitelistedPackages + dynamicWhitelistedPackages
+            val procLower = process.processName.lowercase()
+            if (allWhitelisted.contains(process.processName) || allWhitelisted.any { procLower == it.lowercase() }) continue
             if (systemPrefixes.any { process.processName.lowercase().startsWith(it) }) continue
             if (process.importance <= ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND) {
                 val pkgLower = process.processName.lowercase()

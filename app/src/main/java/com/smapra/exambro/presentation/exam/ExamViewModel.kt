@@ -6,9 +6,11 @@ import androidx.lifecycle.viewModelScope
 import com.smapra.exambro.data.ExamPreferences
 import com.smapra.exambro.security.FloatingAppDetector
 import com.smapra.exambro.security.KioskModeManager
+import com.smapra.exambro.security.SEBCompatibility
 import com.smapra.exambro.security.ScreenCaptureGuard
 import com.smapra.exambro.security.SecurityViolation
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -18,6 +20,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.net.HttpURLConnection
+import java.net.URL
 import javax.inject.Inject
 
 enum class ExamState {
@@ -117,7 +122,10 @@ class ExamViewModel @Inject constructor(
                 )
             }
             viewModelScope.launch {
-                _events.emit(ExamEvent.ShowViolationAlert(violations.first()))
+                val firstViolation = violations.first()
+                _events.emit(ExamEvent.ShowViolationAlert(firstViolation))
+                // Kirim laporan pelanggaran ke server Moodle secara otomatis
+                reportViolationToServer("floating_overlay", firstViolation.message)
             }
         } else if (_uiState.value.examState == ExamState.VIOLATION_DETECTED) {
             _uiState.update {
@@ -139,7 +147,51 @@ class ExamViewModel @Inject constructor(
             }
             viewModelScope.launch {
                 _events.emit(ExamEvent.ShowViolationAlert(SecurityViolation.AppSwitchDetected))
+                // Laporkan counter siswa keluar aplikasi / pindah ke aplikasi lain
+                reportViolationToServer("app_switch", "Siswa keluar / beralih aplikasi selama ujian")
             }
+        }
+    }
+
+    private suspend fun reportViolationToServer(type: String, details: String) = withContext(Dispatchers.IO) {
+        try {
+            val examUrl = _uiState.value.url
+            if (examUrl.isBlank()) return@withContext
+            val uri = android.net.Uri.parse(examUrl)
+            val scheme = uri.scheme ?: "http"
+            val host = uri.host ?: return@withContext
+            val port = if (uri.port != -1) ":${uri.port}" else ""
+            val endpoint = "$scheme://$host$port/local/bulkquiz/api_cbt_violation.php"
+
+            val url = URL(endpoint)
+            val conn = url.openConnection() as HttpURLConnection
+            conn.requestMethod = "POST"
+            conn.setRequestProperty("Content-Type", "application/json; charset=UTF-8")
+            conn.setRequestProperty("User-Agent", SEBCompatibility.SEB_USER_AGENT)
+
+            // Teruskan cookie sesi Moodle saat ini jika ada
+            val cookie = android.webkit.CookieManager.getInstance().getCookie(examUrl)
+            if (!cookie.isNullOrBlank()) {
+                conn.setRequestProperty("Cookie", cookie)
+            }
+
+            conn.doOutput = true
+            conn.connectTimeout = 5000
+            conn.readTimeout = 5000
+
+            val jsonPayload = org.json.JSONObject().apply {
+                put("violation_type", type)
+                put("details", details)
+            }.toString()
+
+            conn.outputStream.use { os ->
+                os.write(jsonPayload.toByteArray(Charsets.UTF_8))
+            }
+
+            val respCode = conn.responseCode
+            android.util.Log.d("ExamViewModel", "Reported violation to server ($respCode)")
+        } catch (e: Exception) {
+            android.util.Log.w("ExamViewModel", "Failed to report violation: ${e.message}")
         }
     }
 

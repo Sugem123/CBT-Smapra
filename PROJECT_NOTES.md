@@ -2,7 +2,7 @@
 *Dokumen ini dibuat untuk mempermudah pelacakan konteks, debugging, dan transfer pekerjaan ke developer / AI agent berikutnya.*
 
 Terakhir Diperbarui: **November 2026**  
-Status: **Production-Ready (v1.1.0)**  
+Status: **Production-Ready (v1.1.1)**  
 Repositori GitHub: [`Sugem123/CBT-Smapra`](https://github.com/Sugem123/CBT-Smapra)
 
 ---
@@ -104,6 +104,7 @@ ExamBro/
 - **v1.0.8**: Dual secret exit tap target (Pojok Kanan Atas 64x64 dp & Kotak Status Kiri Bawah, tap 5x untuk PIN Proktor 131313).
 - **v1.0.9**: Menghapus input manual URL dan histori, beralih penuh ke scan QR Code langsung masuk (Direct Login), alamat server Moodle disembunyikan total agar siswa tidak mengetahui URL dan wajib scan ulang ke pengawas jika keluar aplikasi.
 - **v1.1.0**: Pre-Exam Anti-Floating Threat Gate: Menambahkan izin `QUERY_ALL_PACKAGES` untuk visibilitas paket di Android 11–16, blacklist package by-name (`com.lwi.android.flapps`, dll.), deteksi izin `SYSTEM_ALERT_WINDOW == MODE_ALLOWED` pada aplikasi pihak ketiga, serta penguncian total tombol ujian di beranda dengan Kartu Merah Ancaman dan tombol pembersihan cepat.
+- **v1.1.1**: Integrasi Moodle CBT Control Panel: Sinkronisasi dinamis blacklist/whitelist dari server, pembebasan whitelist (Shopee, Musixmatch, Fly GPS, MyTelkomsel, Location Changer), serta pelaporan real-time saat siswa keluar aplikasi ke tabel `mdl_local_bulkquiz_cbt_violation`.
 
 ---
 

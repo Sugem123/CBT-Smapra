@@ -10,6 +10,7 @@ import com.smapra.exambro.security.ThreatAppInfo
 import com.smapra.exambro.updater.AppUpdater
 import com.smapra.exambro.updater.UpdateInfo
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -17,6 +18,9 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.net.HttpURLConnection
+import java.net.URL
 import javax.inject.Inject
 
 data class SetupUiState(
@@ -62,9 +66,45 @@ class SetupViewModel @Inject constructor(
      */
     fun scanThreats() {
         viewModelScope.launch {
+            fetchServerCbtConfig()
             val threats = floatingAppDetector.scanInstalledThreats()
             _uiState.update { it.copy(detectedThreats = threats) }
         }
+    }
+
+    /**
+     * Mengambil konfigurasi dinamis blacklist & whitelist aplikasi dari server Moodle jika tersedia
+     */
+    private suspend fun fetchServerCbtConfig() = withContext(Dispatchers.IO) {
+        try {
+            val lastUrl = examPreferences.lastUrl
+            val urlStr = "http://sassman1prambon.sytes.net/local/bulkquiz/api_cbt_config.php"
+            val conn = URL(urlStr).openConnection() as HttpURLConnection
+            conn.connectTimeout = 3000
+            conn.readTimeout = 3000
+            conn.requestMethod = "GET"
+            if (conn.responseCode == 200) {
+                val resp = conn.inputStream.bufferedReader().readText()
+                val json = org.json.JSONObject(resp)
+                if (json.optBoolean("success")) {
+                    val wlJson = json.optJSONArray("whitelist")
+                    val blJson = json.optJSONArray("blacklist")
+                    val wlSet = mutableSetOf<String>()
+                    val blSet = mutableSetOf<String>()
+                    if (wlJson != null) {
+                        for (i in 0 until wlJson.length()) {
+                            wlSet.add(wlJson.getString(i).trim())
+                        }
+                    }
+                    if (blJson != null) {
+                        for (i in 0 until blJson.length()) {
+                            blSet.add(blJson.getString(i).trim())
+                        }
+                    }
+                    floatingAppDetector.updateDynamicConfig(wlSet, blSet)
+                }
+            }
+        } catch (_: Exception) {}
     }
 
     /**
