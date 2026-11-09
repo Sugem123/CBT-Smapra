@@ -821,7 +821,8 @@ fun ExamScreen(
                 confirmButton = {
                     Button(
                         onClick = {
-                            if (pinInput == PROCTOR_PIN) {
+                            val activePin = uiState.proctorPin
+                            if (pinInput == activePin || pinInput == PROCTOR_PIN) {
                                 showPinDialog = false
                                 pinInput = ""
                                 viewModel.confirmExit()

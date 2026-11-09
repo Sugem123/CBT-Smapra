@@ -7,6 +7,25 @@ dan proyek ini menggunakan [Semantic Versioning](https://semver.org/lang/id/).
 
 ---
 
+## [1.1.4] — 2026-11-09
+
+### 🌐 Dukungan Input IP Lokal Langsung & Pengaturan PIN Proktor via Web
+
+#### Ditambahkan
+- **Dukungan Input IP Lokal Langsung (Tanpa Awalan `http://`)**:
+  - Validasi URL kini mendukung IPv4 murni (misal teknisi mengetik `192.168.1.100` atau `192.168.1.100:8080`).
+  - Sistem otomatis menambahkan skema `http://` sehingga teknisi tidak perlu mengetik panjang.
+- **PIN Proktor Dinamis dari Moodle Control Panel**:
+  - Kolom pengaturan **🔑 PIN Proktor / Teknisi (Emergency Secret PIN)** ditambahkan pada halaman Moodle CBT Control Panel.
+  - Pengawas dapat mengganti PIN darurat kapan saja tanpa perlu meng-update/mengompilasi ulang aplikasi APK.
+  - Aplikasi Android secara otomatis menyinkronkan PIN proktor terbaru dari server (dengan fallback `131313` jika server belum terjangkau).
+
+#### Berkas APK
+- `CBT-SMAPRA-v1.1.4-Android8+-release.apk` (32.4 MB)
+- `CBT-SMAPRA-v1.1.4-Android5+-release.apk` (20.8 MB)
+
+---
+
 ## [1.1.3] — 2026-11-09
 
 ### 🌐 Kompatibilitas Jaringan Lokal Offline & Otorisasi Token Keluar

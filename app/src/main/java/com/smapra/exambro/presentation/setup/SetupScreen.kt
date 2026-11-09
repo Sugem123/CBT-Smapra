@@ -666,7 +666,8 @@ fun SetupScreen(
                 confirmButton = {
                     Button(
                         onClick = {
-                            if (techPinInput == "131313") {
+                            val activePin = uiState.proctorPin
+                            if (techPinInput == activePin || techPinInput == "131313") {
                                 showTechPinDialog = false
                                 techPinInput = ""
                                 techPinError = false
@@ -712,13 +713,15 @@ fun SetupScreen(
                                 techUrlInput = it
                                 techUrlError = null
                             },
-                            label = { Text("Alamat Server") },
-                            placeholder = { Text("http://sassman1prambon.sytes.net") },
+                            label = { Text("IP / Alamat Server") },
+                            placeholder = { Text("192.168.1.100 atau cbt.sekolah.id") },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
                             singleLine = true,
                             isError = techUrlError != null,
                             supportingText = techUrlError?.let { err ->
                                 { Text(err, color = MaterialTheme.colorScheme.error) }
+                            } ?: {
+                                Text("Otomatis menambahkan http:// jika hanya memasukkan angka IP/domain", color = MaterialTheme.colorScheme.onSurfaceVariant)
                             },
                             modifier = Modifier.fillMaxWidth(),
                         )

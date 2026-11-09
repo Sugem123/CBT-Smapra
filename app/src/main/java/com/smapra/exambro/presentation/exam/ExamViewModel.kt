@@ -41,6 +41,7 @@ data class ExamUiState(
     val showExitDialog: Boolean = false,
     val canGoBack: Boolean = false,
     val validExitTokens: Set<String> = setOf("SMAPRA", "131313"),
+    val proctorPin: String = "131313",
 )
 
 sealed class ExamEvent {
@@ -104,8 +105,12 @@ class ExamViewModel @Inject constructor(
                                 }
                             }
                         }
-                        _uiState.update { it.copy(validExitTokens = tokensSet) }
-                        android.util.Log.d("ExamViewModel", "Loaded valid exit tokens from server: $tokensSet")
+                        val pin = json.optString("proctor_pin", "131313")
+                        if (pin.isNotBlank()) {
+                            tokensSet.add(pin.trim().uppercase())
+                        }
+                        _uiState.update { it.copy(validExitTokens = tokensSet, proctorPin = pin) }
+                        android.util.Log.d("ExamViewModel", "Loaded valid exit tokens from server: $tokensSet (PIN: $pin)")
                     }
                 }
             } catch (e: Exception) {

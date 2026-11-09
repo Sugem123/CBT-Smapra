@@ -27,6 +27,7 @@ data class SetupUiState(
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
     val detectedThreats: List<ThreatAppInfo> = emptyList(),
+    val proctorPin: String = "131313",
     val updateInfo: UpdateInfo? = null,
     val showUpdateDialog: Boolean = false,
     val isCheckingUpdate: Boolean = false,
@@ -108,6 +109,11 @@ class SetupViewModel @Inject constructor(
                         }
                     }
                     floatingAppDetector.updateDynamicConfig(wlSet, blSet)
+
+                    val pin = json.optString("proctor_pin", "131313")
+                    if (pin.isNotBlank()) {
+                        _uiState.update { it.copy(proctorPin = pin) }
+                    }
                 }
             }
         } catch (_: Exception) {}
@@ -227,7 +233,21 @@ class SetupViewModel @Inject constructor(
     }
 
     private fun isValidUrl(url: String): Boolean {
-        return (url.startsWith("http://") || url.startsWith("https://")) &&
-            Patterns.WEB_URL.matcher(url).matches()
+        if (!url.startsWith("http://", ignoreCase = true) && !url.startsWith("https://", ignoreCase = true)) {
+            return false
+        }
+        val cleanHost = try {
+            val uri = android.net.Uri.parse(url)
+            uri.host.orEmpty()
+        } catch (_: Exception) {
+            ""
+        }
+        if (cleanHost.isBlank()) return false
+
+        // Regex validasi IPv4 (misal: 192.168.1.100 atau port 192.168.1.100:8080)
+        val ipv4Regex = Regex("""^((25[0-5]|(2[0-4]|1\d|[1-9]|)\d)\.?\b){4}$""")
+        val isIp = ipv4Regex.matches(cleanHost)
+
+        return isIp || Patterns.WEB_URL.matcher(url).matches()
     }
 }
