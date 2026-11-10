@@ -109,6 +109,7 @@ ExamBro/
 - **v1.1.3**: Kompatibilitas Jaringan Lokal Offline (IP lokal dan internet) untuk seluruh sinkronisasi CBT, serta Otorisasi Token Keluar Siswa (Siswa wajib memasukkan token sistem/manual dari pengawas untuk keluar ujian).
 - **v1.1.4**: Dukungan Input IP Lokal Langsung tanpa awalan http:// (IPv4 auto-normalize), dan Pengaturan PIN Proktor Dinamis langsung dari Moodle CBT Control Panel.
 - **v1.1.5**: Sinkronisasi token keluar realtime (60 detik + live validation saat submit token), perbaikan tombol Refresh dengan animasi putar nyata, dan filter presisi pada onReceivedError untuk mencegah false alarm 'Koneksi Terputus'.
+- **Server Fix (Nov 10, 2026)**: Memperbaiki pemetaan `$r->userid` pada `monitor_students.php` dan `monitor.php` (sebelumnya memanggil `$r->id` yang bernilai NULL dari objek snapshot Moodle, menyebabkan counter selalu 0x). Sekarang data pelanggaran keluar aplikasi tampil akurat secara real-time.
 
 ---
 
