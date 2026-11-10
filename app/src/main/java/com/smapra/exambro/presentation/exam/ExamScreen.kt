@@ -60,6 +60,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -127,6 +128,9 @@ fun ExamScreen(
     // Dialog Keluar Siswa (Wajib Token Pengawas)
     var studentExitTokenInput by remember { mutableStateOf("") }
     var studentExitTokenError by remember { mutableStateOf(false) }
+
+    // Indikator status koneksi error
+    var showConnectionError by remember { mutableStateOf(false) }
 
     // Status bar: waktu, tanggal & baterai
     var currentTime by remember {
@@ -344,10 +348,13 @@ fun ExamScreen(
                         cookieManager.setAcceptThirdPartyCookies(this, true)
                     }
 
+                    // Set WebViewClient dan WebChromeClient hanya SATU KALI di factory
                     webViewClient = createExamWebViewClient(
                         viewModel = viewModel,
-                        allowedDomains = allowedDomains,
+                        getAllowedDomains = { allowedDomains },
                         primaryUrl = url,
+                        onFatalError = { showConnectionError = true },
+                        onClearError = { showConnectionError = false },
                     )
 
                     webChromeClient = createExamWebChromeClient(viewModel)
@@ -362,18 +369,15 @@ fun ExamScreen(
                 }
             },
             modifier = Modifier.fillMaxSize(),
-            update = { wv ->
-                wv.webViewClient = createExamWebViewClient(
-                    viewModel = viewModel,
-                    allowedDomains = allowedDomains,
-                    primaryUrl = url,
-                )
+            update = { _ ->
+                // JANGAN re-assign webViewClient di sini!
+                // Re-assigning client di update block membatalkan koneksi WebView yang sedang berlangsung.
             },
         )
 
         // Loading indicator
         AnimatedVisibility(
-            visible = uiState.examState == ExamState.LOADING,
+            visible = uiState.examState == ExamState.LOADING && !showConnectionError,
             enter = fadeIn(),
             exit = fadeOut(),
         ) {
@@ -382,6 +386,28 @@ fun ExamScreen(
                 modifier = Modifier.fillMaxWidth(),
                 color = MaterialTheme.colorScheme.primary,
                 trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
+            )
+        }
+
+        // Overlay Koneksi Terputus (Compose Native — Tidak merusak DOM / URL asli WebView)
+        AnimatedVisibility(
+            visible = showConnectionError,
+            enter = fadeIn(),
+            exit = fadeOut(),
+        ) {
+            ConnectionErrorOverlay(
+                serverHost = remember(url) {
+                    try {
+                        android.net.Uri.parse(url).host ?: url
+                    } catch (_: Exception) {
+                        url
+                    }
+                },
+                onRetry = {
+                    showConnectionError = false
+                    viewModel.onPageStarted(url)
+                    webView?.loadUrl(url)
+                },
             )
         }
 
@@ -783,8 +809,14 @@ fun ExamScreen(
                 modifier = Modifier
                     .clip(RoundedCornerShape(14.dp))
                     .clickable {
-                        viewModel.onPageStarted(webView?.url)
-                        webView?.reload()
+                        showConnectionError = false
+                        val cur = webView?.url
+                        viewModel.onPageStarted(cur ?: url)
+                        if (cur.isNullOrBlank() || cur == "about:blank" || cur.startsWith("data:")) {
+                            webView?.loadUrl(url)
+                        } else {
+                            webView?.reload()
+                        }
                     },
                 shape = RoundedCornerShape(14.dp),
                 color = Color(0xD90F172A),
@@ -958,21 +990,29 @@ private const val TAG = "ExamWebView"
 
 private fun createExamWebViewClient(
     viewModel: ExamViewModel,
-    allowedDomains: Set<String>,
+    getAllowedDomains: () -> Set<String>,
     primaryUrl: String,
+    onFatalError: () -> Unit,
+    onClearError: () -> Unit,
 ): WebViewClient {
+    var retryCount = 0
+
     return object : WebViewClient() {
 
         override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
             super.onPageStarted(view, url, favicon)
             Log.d(TAG, "onPageStarted: $url")
             viewModel.onPageStarted(url)
+            onClearError()
+            retryCount = 0
         }
 
         override fun onPageFinished(view: WebView?, url: String?) {
             super.onPageFinished(view, url)
             Log.d(TAG, "onPageFinished: $url")
             viewModel.onPageFinished(url)
+            onClearError()
+            retryCount = 0
             view?.let {
                 viewModel.onCanGoBackChanged(it.canGoBack())
             }
@@ -980,23 +1020,26 @@ private fun createExamWebViewClient(
 
         override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
             val requestUrl = request?.url ?: return true
-            val host = requestUrl.host ?: return true
+            val host = requestUrl.host.orEmpty().lowercase()
+            val primaryHost = try {
+                android.net.Uri.parse(primaryUrl).host.orEmpty().lowercase()
+            } catch (_: Exception) { "" }
 
-            if (allowedDomains.isNotEmpty()) {
-                val isAllowed = allowedDomains.any { domain ->
-                    host == domain || host.endsWith(".$domain")
+            // Selalu izinkan jika host sama dengan primaryHost (IP lokal maupun domain)
+            if (host.isNotEmpty() && (host == primaryHost || host.endsWith(".$primaryHost"))) {
+                Log.d(TAG, "Allowing primary host navigation to: $requestUrl")
+                return false
+            }
+
+            val currentAllowed = getAllowedDomains()
+            if (currentAllowed.isNotEmpty()) {
+                val isAllowed = currentAllowed.any { domain ->
+                    val d = domain.lowercase()
+                    host == d || host.endsWith(".$d")
                 }
                 if (!isAllowed) {
                     Log.w(TAG, "Blocked navigation to $host (not in allowed domains)")
                     return true
-                }
-            } else {
-                val primaryHost = android.net.Uri.parse(primaryUrl).host
-                if (primaryHost != null) {
-                    if (host != primaryHost && !host.endsWith(".$primaryHost")) {
-                        Log.w(TAG, "Blocked navigation to $host (primary: $primaryHost)")
-                        return true
-                    }
                 }
             }
 
@@ -1013,45 +1056,119 @@ private fun createExamWebViewClient(
         override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
             val errorCode = error?.errorCode ?: 0
             val desc = error?.description?.toString() ?: ""
-            Log.e(TAG, "WebView error: code=$errorCode desc=$desc url=${request?.url}")
+            val isMainFrame = request?.isForMainFrame == true
+            Log.e(TAG, "WebView error: code=$errorCode desc=$desc isMainFrame=$isMainFrame url=${request?.url}")
             super.onReceivedError(view, request, error)
 
-            // Hanya tampilkan halaman error jika MAIN FRAME gagal karena benar-benar gagal koneksi jaringan fatal
-            // (Abaikan error sub-resource seperti favicon 404, tracking pixel, font gagal load, SSL warning, atau abort saat reload)
-            if (request?.isForMainFrame == true) {
-                // List error koneksi putus sesungguhnya:
-                // ERROR_CONNECT (-6), ERROR_HOST_LOOKUP (-2), ERROR_TIMEOUT (-8), ERROR_FAILED_SSL_HANDSHAKE (-11)
+            // Hanya proses jika kegagalan terjadi pada dokumen utama (Main Frame)
+            if (isMainFrame) {
+                // Abaikan error abort (-1 / ERR_ABORTED) yang normal saat perpindahan halaman
+                if (errorCode == -1 || desc.contains("ERR_ABORTED", ignoreCase = true)) {
+                    return
+                }
+
                 val isConnectionError = errorCode == WebViewClient.ERROR_CONNECT ||
                     errorCode == WebViewClient.ERROR_HOST_LOOKUP ||
                     errorCode == WebViewClient.ERROR_TIMEOUT ||
-                    errorCode == WebViewClient.ERROR_FAILED_SSL_HANDSHAKE ||
-                    errorCode == WebViewClient.ERROR_UNKNOWN
+                    errorCode == WebViewClient.ERROR_FAILED_SSL_HANDSHAKE
 
-                // Jangan timpa jika error hanya karena user menekan reload / abort (-1)
-                if (isConnectionError && errorCode != -1) {
-                    val errorHtml = """
-                        <!DOCTYPE html>
-                        <html>
-                        <head>
-                            <meta charset="utf-8">
-                            <meta name="viewport" content="width=device-width, initial-scale=1">
-                            <style>
-                                body { font-family: -apple-system, sans-serif; text-align: center; padding: 40px 16px; background: #0f172a; color: white; margin: 0; }
-                                .card { max-width: 400px; margin: 40px auto; background: #1e293b; padding: 32px 20px; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); }
-                                h2 { color: #f87171; font-size: 20px; margin-bottom: 12px; }
-                                p { color: #94a3b8; font-size: 14px; line-height: 1.6; }
-                            </style>
-                        </head>
-                        <body>
-                            <div class="card">
-                                <div style="font-size: 48px">&#9888;</div>
-                                <h2>Koneksi Terputus</h2>
-                                <p>Tidak dapat terhubung ke server CBT.<br>Pastikan Anda terhubung ke Wi-Fi sekolah, lalu tekan tombol <b>Refresh</b> di bawah layar.</p>
-                            </div>
-                        </body>
-                        </html>
-                    """.trimIndent()
-                    view?.loadDataWithBaseURL(null, errorHtml, "text/html", "UTF-8", null)
+                if (isConnectionError) {
+                    // Coba auto-retry hingga 2x dengan jeda 1.2 detik (menangani Wi-Fi/DNS yang baru pemanasan)
+                    if (retryCount < 2) {
+                        retryCount++
+                        Log.d(TAG, "Connection hiccup, auto-retrying ($retryCount/2) to $primaryUrl...")
+                        view?.postDelayed({
+                            view.loadUrl(primaryUrl)
+                        }, 1200L)
+                    } else {
+                        // Jika 2x retry tetap gagal, tampilkan overlay Compose (tanpa merusak DOM / URL asli WebView)
+                        onFatalError()
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ConnectionErrorOverlay(
+    serverHost: String,
+    onRetry: () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xE60F172A))
+            .padding(24.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Card(
+            modifier = Modifier.fillMaxWidth(0.92f),
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
+            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0x33EF4444)),
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Surface(
+                    modifier = Modifier.size(60.dp),
+                    shape = CircleShape,
+                    color = Color(0x33EF4444),
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Filled.Warning,
+                            contentDescription = null,
+                            tint = Color(0xFFEF4444),
+                            modifier = Modifier.size(32.dp),
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Text(
+                    text = "Koneksi ke Server Terputus",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    color = Color.White,
+                    textAlign = TextAlign.Center,
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Text(
+                    text = "Tidak dapat terhubung ke server CBT ($serverHost).\nPastikan Wi-Fi sekolah aktif dan stabil, lalu coba hubungkan kembali.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color(0xFF94A3B8),
+                    textAlign = TextAlign.Center,
+                    lineHeight = 18.sp,
+                )
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                Button(
+                    onClick = onRetry,
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3B82F6)),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Refresh,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Coba Hubungkan Lagi",
+                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                    )
                 }
             }
         }

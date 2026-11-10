@@ -7,6 +7,26 @@ dan proyek ini menggunakan [Semantic Versioning](https://semver.org/lang/id/).
 
 ---
 
+## [1.1.7] — 2026-11-11
+
+### 🚀 Optimasi Koneksi Awal & Perbaikan False Alarm "Koneksi Terputus"
+
+#### Diperbaiki
+- **Penyebab Sering Terjebak Notif "Koneksi Terputus" saat Awal Masuk**:
+  - Ditemukan bug ganda:
+    1. Blok `update` pada `AndroidView` sebelumnya terus membuat dan menimpa objek `WebViewClient` setiap kali recomposition Compose terjadi, membatalkan (*cancel*) koneksi TLS/HTTP yang sedang berjalan di awal loading.
+    2. Saat WebView menerima error minor atau membatalkan request, `loadDataWithBaseURL` langsung menyuntikkan HTML offline merah ke dalam DOM, menggantikan URL kuis Moodle sehingga siswa harus menekan back/refresh.
+- **Solusi yang Diterapkan**:
+  - **Inisialisasi Tunggal**: `WebViewClient` sekarang hanya dipasang satu kali di factory `AndroidView` dan tidak ditimpa saat recomposition.
+  - **Auto-Retry Jaringan Cerdas**: Jika terjadi gangguan jaringan awal (DNS/Wi-Fi delay), aplikasi otomatis mencoba menghubungkan kembali (retry) hingga 2x dengan jeda 1.2 detik sebelum memunculkan peringatan.
+  - **Compose Native Overlay**: Peringatan koneksi terputus kini ditampilkan sebagai lapisan UI Jetpack Compose native melayang di atas WebView tanpa merusak atau menimpa URL halaman Moodle yang sedang dimuat. Begitu siswa menekan "Coba Hubungkan Lagi" atau jaringan stabil, layar soal langsung terbuka utuh.
+
+#### Berkas APK
+- `CBT-SMAPRA-v1.1.7-Android8+-release.apk` (32.4 MB)
+- `CBT-SMAPRA-v1.1.7-Android5+-release.apk` (20.8 MB)
+
+---
+
 ## [1.1.6] — 2026-11-10
 
 ### 🎯 Counter Keluar Aplikasi Berbasis Kuis/Mapel (Scoped Counter Per-Quiz)
