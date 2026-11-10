@@ -7,6 +7,28 @@ dan proyek ini menggunakan [Semantic Versioning](https://semver.org/lang/id/).
 
 ---
 
+## [1.1.6] — 2026-11-10
+
+### 🎯 Counter Keluar Aplikasi Berbasis Kuis/Mapel (Scoped Counter Per-Quiz)
+
+#### Diperbaiki & Ditingkatkan
+- **Pencatatan Counter Pelanggaran Spesifik Per-Kuis**:
+  - Counter keluar aplikasi kini terikat langsung dengan ID kuis (`quizid`) dan mapel (`courseid`) yang sedang aktif dikerjakan.
+  - Saat siswa berpindah ke kuis/mapel lain, counter untuk kuis baru otomatis mulai dari **0x**.
+  - Riwayat pelanggaran kuis sebelumnya tetap tersimpan terpisah dan tidak tercampur ke mapel baru.
+- **Penyempurnaan Pelaporan Aplikasi Android**:
+  - Aplikasi secara otomatis mengirimkan parameter `current_url` aktif saat melaporkan pelanggaran ke server.
+  - Endpoint `api_cbt_violation.php` secara otomatis mendeteksi kuis & attempt aktif siswa secara cerdas dari URL maupun status pengerjaan Moodle terkini.
+- **Tampilan Monitoring Terpadu (`monitor.php`, `monitor_students.php`, & `cbt_control.php`)**:
+  - Halaman `monitor.php` dan `monitor_students.php` hanya menghitung pelanggaran untuk kuis/mapel yang sedang aktif dikerjakan siswa.
+  - Pada halaman `cbt_control.php`, daftar pelanggaran kini dikelompokkan per siswa dan per kuis/mapel (dilengkapi nama kuis/mapel yang bersangkutan) serta tombol reset per-kuis.
+
+#### Berkas APK
+- `CBT-SMAPRA-v1.1.6-Android8+-release.apk` (32.4 MB)
+- `CBT-SMAPRA-v1.1.6-Android5+-release.apk` (20.8 MB)
+
+---
+
 ## [1.1.5] — 2026-11-09
 
 ### 🔄 Sinkronisasi Realtime Token Keluar, Animasi Refresh & Filter Error Jaringan

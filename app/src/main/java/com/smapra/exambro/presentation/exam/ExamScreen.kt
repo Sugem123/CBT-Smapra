@@ -783,7 +783,7 @@ fun ExamScreen(
                 modifier = Modifier
                     .clip(RoundedCornerShape(14.dp))
                     .clickable {
-                        viewModel.onPageStarted()
+                        viewModel.onPageStarted(webView?.url)
                         webView?.reload()
                     },
                 shape = RoundedCornerShape(14.dp),
@@ -966,13 +966,13 @@ private fun createExamWebViewClient(
         override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
             super.onPageStarted(view, url, favicon)
             Log.d(TAG, "onPageStarted: $url")
-            viewModel.onPageStarted()
+            viewModel.onPageStarted(url)
         }
 
         override fun onPageFinished(view: WebView?, url: String?) {
             super.onPageFinished(view, url)
             Log.d(TAG, "onPageFinished: $url")
-            viewModel.onPageFinished()
+            viewModel.onPageFinished(url)
             view?.let {
                 viewModel.onCanGoBackChanged(it.canGoBack())
             }

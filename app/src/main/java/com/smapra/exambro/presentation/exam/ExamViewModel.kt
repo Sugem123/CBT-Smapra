@@ -156,12 +156,23 @@ class ExamViewModel @Inject constructor(
         return@withContext freshTokens.contains(entered)
     }
 
-    fun onPageStarted() {
-        _uiState.update { it.copy(examState = ExamState.LOADING, loadingProgress = 0) }
+    fun onPageStarted(url: String? = null) {
+        _uiState.update {
+            it.copy(
+                examState = ExamState.LOADING,
+                loadingProgress = 0,
+                url = if (!url.isNullOrBlank()) url else it.url,
+            )
+        }
     }
 
-    fun onPageFinished() {
-        _uiState.update { it.copy(examState = ExamState.IN_PROGRESS) }
+    fun onPageFinished(url: String? = null) {
+        _uiState.update {
+            it.copy(
+                examState = ExamState.IN_PROGRESS,
+                url = if (!url.isNullOrBlank()) url else it.url,
+            )
+        }
     }
 
     fun onProgressChanged(progress: Int) {
@@ -265,6 +276,7 @@ class ExamViewModel @Inject constructor(
             val jsonPayload = org.json.JSONObject().apply {
                 put("violation_type", type)
                 put("details", details)
+                put("current_url", examUrl)
             }.toString()
 
             conn.outputStream.use { os ->
