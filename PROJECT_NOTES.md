@@ -2,7 +2,7 @@
 *Dokumen ini dibuat untuk mempermudah pelacakan konteks, debugging, dan transfer pekerjaan ke developer / AI agent berikutnya.*
 
 Terakhir Diperbarui: **November 2026**  
-Status: **Production-Ready (v1.1.7)**  
+Status: **Production-Ready (v1.1.8)**  
 Repositori GitHub: [`Sugem123/CBT-Smapra`](https://github.com/Sugem123/CBT-Smapra)
 
 ---
@@ -112,6 +112,7 @@ ExamBro/
 - **Server Fix (Nov 10, 2026)**: Memperbaiki pemetaan `$r->userid` pada `monitor_students.php` dan `monitor.php` (sebelumnya memanggil `$r->id` yang bernilai NULL dari objek snapshot Moodle, menyebabkan counter selalu 0x). Sekarang data pelanggaran keluar aplikasi tampil akurat secara real-time.
 - **v1.1.6**: Counter Pelanggaran Scoped Per-Kuis / Per-Mapel: Menambahkan kolom `courseid` ke tabel database `local_bulkquiz_cbt_violation`, pelaporan `current_url` dinamis dari aplikasi Android, resolusi otomatis quiz & attempt aktif, serta scoping counter di `monitor.php`, `monitor_students.php`, dan `cbt_control.php` sehingga ketika siswa berpindah ke kuis/mapel lain, counter otomatis mulai dari 0x.
 - **v1.1.7**: Optimasi Loading Awal & Perbaikan False Alarm Koneksi: Memperbaiki bug recomposition AndroidView yang me-reassign WebViewClient saat loading awal, auto-retry 2x dengan delay 1.2 detik saat DNS/Wi-Fi delay, dan isolasi tampilan error menggunakan Compose Native Overlay tanpa merusak URL asli WebView.
+- **v1.1.8**: Fix Freeze Gambar Soal (Oppo/Vivo) & PIN Proktor Dinamis: Menambahkan handler `onShowCustomView`/`onHideCustomView` untuk mencegah freeze saat klik gambar soal di Moodle; inject CSS/JS anti-lightbox; sinkronisasi PIN Proktor realtime dengan status sync di dialog PIN + tombol Sync PIN manual + auto-sync saat PIN salah.
 
 ---
 

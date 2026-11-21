@@ -42,6 +42,9 @@ data class ExamUiState(
     val canGoBack: Boolean = false,
     val validExitTokens: Set<String> = setOf("SMAPRA", "131313"),
     val proctorPin: String = "131313",
+    val lastPinSyncTime: Long = 0L,       // epoch millis ketika PIN terakhir berhasil disinkron
+    val pinSyncSuccess: Boolean = false,   // apakah sync terakhir berhasil
+    val isSyncingPin: Boolean = false,     // sedang proses sync
 )
 
 sealed class ExamEvent {
@@ -94,6 +97,7 @@ class ExamViewModel @Inject constructor(
     private suspend fun fetchCbtExitTokensDirect(examUrl: String): Boolean = withContext(Dispatchers.IO) {
         try {
             if (examUrl.isBlank()) return@withContext false
+            _uiState.update { it.copy(isSyncingPin = true) }
             val uri = android.net.Uri.parse(examUrl)
             val scheme = uri.scheme ?: "http"
             val host = uri.host ?: return@withContext false
@@ -123,15 +127,33 @@ class ExamViewModel @Inject constructor(
                     if (pin.isNotBlank()) {
                         tokensSet.add(pin.trim().uppercase())
                     }
-                    _uiState.update { it.copy(validExitTokens = tokensSet, proctorPin = pin) }
+                    _uiState.update {
+                        it.copy(
+                            validExitTokens = tokensSet,
+                            proctorPin = pin,
+                            lastPinSyncTime = System.currentTimeMillis(),
+                            pinSyncSuccess = true,
+                            isSyncingPin = false,
+                        )
+                    }
                     android.util.Log.d("ExamViewModel", "Synced exit tokens from server: $tokensSet (PIN: $pin)")
                     return@withContext true
                 }
             }
+            _uiState.update { it.copy(isSyncingPin = false, pinSyncSuccess = false) }
         } catch (e: Exception) {
             android.util.Log.w("ExamViewModel", "Failed to sync exit tokens: ${e.message}")
+            _uiState.update { it.copy(isSyncingPin = false, pinSyncSuccess = false) }
         }
         return@withContext false
+    }
+
+    /** Dipanggil manual dari UI untuk memaksa sync PIN/token sekarang juga */
+    fun manualSyncPin() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val currentUrl = _uiState.value.url
+            fetchCbtExitTokensDirect(currentUrl)
+        }
     }
 
     /**

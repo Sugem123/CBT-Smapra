@@ -5,6 +5,7 @@ import android.app.Activity
 import android.graphics.Bitmap
 import android.net.http.SslError
 import android.util.Log
+import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
 import android.webkit.CookieManager
@@ -16,6 +17,7 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.widget.FrameLayout
 import androidx.activity.compose.BackHandler
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -131,6 +133,10 @@ fun ExamScreen(
 
     // Indikator status koneksi error
     var showConnectionError by remember { mutableStateOf(false) }
+
+    // Fullscreen custom view (image lightbox, video fullscreen) handler
+    var customView by remember { mutableStateOf<View?>(null) }
+    var customViewCallback by remember { mutableStateOf<WebChromeClient.CustomViewCallback?>(null) }
 
     // Status bar: waktu, tanggal & baterai
     var currentTime by remember {
@@ -357,7 +363,18 @@ fun ExamScreen(
                         onClearError = { showConnectionError = false },
                     )
 
-                    webChromeClient = createExamWebChromeClient(viewModel)
+                    webChromeClient = createExamWebChromeClient(
+                        viewModel = viewModel,
+                        onShowCustomView = { view, callback ->
+                            customView = view
+                            customViewCallback = callback
+                        },
+                        onHideCustomView = {
+                            customViewCallback?.onCustomViewHidden()
+                            customView = null
+                            customViewCallback = null
+                        },
+                    )
 
                     setOnLongClickListener { true }
                     isHapticFeedbackEnabled = false
@@ -374,6 +391,73 @@ fun ExamScreen(
                 // Re-assigning client di update block membatalkan koneksi WebView yang sedang berlangsung.
             },
         )
+
+        // Fullscreen Custom View Overlay (image lightbox, video fullscreen dari Moodle/WebView engine)
+        // Tanpa handler ini, klik gambar soal di Moodle bisa membekukan layar terutama di Oppo/Vivo
+        if (customView != null) {
+            AndroidView(
+                factory = { ctx ->
+                    FrameLayout(ctx).apply {
+                        layoutParams = ViewGroup.LayoutParams(
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                        )
+                        setBackgroundColor(android.graphics.Color.BLACK)
+                        // Pasang custom view ke container ini
+                        customView?.let { cv ->
+                            (cv.parent as? ViewGroup)?.removeView(cv)
+                            addView(cv, ViewGroup.LayoutParams(
+                                ViewGroup.LayoutParams.MATCH_PARENT,
+                                ViewGroup.LayoutParams.MATCH_PARENT,
+                            ))
+                        }
+                        // Ketuk di mana saja untuk keluar dari fullscreen
+                        setOnClickListener {
+                            customViewCallback?.onCustomViewHidden()
+                            customView = null
+                            customViewCallback = null
+                        }
+                    }
+                },
+                modifier = Modifier.fillMaxSize(),
+            )
+
+            // Tombol tutup terapung (agar siswa tahu cara keluar dari gambar fullscreen)
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp),
+                contentAlignment = Alignment.TopEnd,
+            ) {
+                Surface(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clickable {
+                            customViewCallback?.onCustomViewHidden()
+                            customView = null
+                            customViewCallback = null
+                        },
+                    shape = CircleShape,
+                    color = Color(0xCC000000),
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(
+                            text = "✕",
+                            color = Color.White,
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
+                }
+            }
+
+            // Back handler untuk keluar dari custom view dengan tombol back
+            BackHandler(enabled = true) {
+                customViewCallback?.onCustomViewHidden()
+                customView = null
+                customViewCallback = null
+            }
+        }
 
         // Loading indicator
         AnimatedVisibility(
@@ -857,7 +941,47 @@ fun ExamScreen(
                 text = {
                     Column {
                         Text("Masukkan PIN untuk keluar dari mode ujian.")
-                        Spacer(modifier = Modifier.height(12.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Status sinkronisasi PIN dari server
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                            val syncText = if (uiState.isSyncingPin) {
+                                "Menyinkronkan..."
+                            } else if (uiState.pinSyncSuccess && uiState.lastPinSyncTime > 0) {
+                                val elapsed = (System.currentTimeMillis() - uiState.lastPinSyncTime) / 1000
+                                if (elapsed < 60) "Tersinkron ${elapsed}d lalu"
+                                else "Tersinkron ${elapsed / 60}m lalu"
+                            } else {
+                                "Belum tersinkron"
+                            }
+                            val syncColor = if (uiState.pinSyncSuccess) Color(0xFF22C55E) else Color(0xFFEF4444)
+
+                            Text(
+                                text = "● $syncText",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = syncColor,
+                            )
+
+                            // Tombol refresh PIN manual
+                            TextButton(
+                                onClick = { viewModel.manualSyncPin() },
+                                enabled = !uiState.isSyncingPin,
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Refresh,
+                                    contentDescription = "Sinkron PIN",
+                                    modifier = Modifier.size(16.dp),
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Sync PIN", style = MaterialTheme.typography.labelSmall)
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
                         OutlinedTextField(
                             value = pinInput,
                             onValueChange = {
@@ -870,7 +994,7 @@ fun ExamScreen(
                             singleLine = true,
                             isError = pinError,
                             supportingText = if (pinError) {
-                                { Text("PIN salah", color = MaterialTheme.colorScheme.error) }
+                                { Text("PIN salah. Tekan Sync PIN jika baru diubah.", color = MaterialTheme.colorScheme.error) }
                             } else {
                                 null
                             },
@@ -888,6 +1012,8 @@ fun ExamScreen(
                                 viewModel.confirmExit()
                             } else {
                                 pinError = true
+                                // Auto-sync saat PIN salah — mungkin baru diubah di server
+                                viewModel.manualSyncPin()
                             }
                         },
                     ) {
@@ -1015,6 +1141,67 @@ private fun createExamWebViewClient(
             retryCount = 0
             view?.let {
                 viewModel.onCanGoBackChanged(it.canGoBack())
+
+                // Inject CSS/JS untuk mencegah freeze saat klik gambar soal di Moodle
+                // Moodle Boost theme menggunakan lightbox/modal yang bisa membekukan layar
+                // terutama pada Oppo/Vivo (ColorOS/FuntouchOS) karena overlay menutupi input
+                it.evaluateJavascript("""
+                    (function() {
+                        // 1. Nonaktifkan Moodle image lightbox/modal yang bisa freeze
+                        if (window.M && window.M.util && window.M.util.image_lightbox) {
+                            window.M.util.image_lightbox = function() {};
+                        }
+
+                        // 2. Tambahkan CSS untuk membatasi ukuran gambar agar tidak fullscreen
+                        var style = document.getElementById('smapra-img-fix');
+                        if (!style) {
+                            style = document.createElement('style');
+                            style.id = 'smapra-img-fix';
+                            style.textContent = [
+                                '.modal-backdrop { display: none !important; }',
+                                '.modal.show img { max-width: 95vw !important; max-height: 80vh !important; object-fit: contain !important; }',
+                                '.moodle-dialogue-base .moodle-dialogue-lightbox { display: none !important; }',
+                                '.que .formulation img { cursor: default !important; max-width: 100% !important; height: auto !important; }',
+                                'img.img-responsive, img.img-fluid { pointer-events: auto !important; max-width: 100% !important; height: auto !important; }',
+                            ].join('\n');
+                            document.head.appendChild(style);
+                        }
+
+                        // 3. Intercept klik pada gambar soal — tampilkan inline zoom, bukan overlay
+                        document.querySelectorAll('.que .formulation img, .que .qtext img').forEach(function(img) {
+                            if (img.dataset.smapraHandled) return;
+                            img.dataset.smapraHandled = 'true';
+
+                            // Hapus link wrapper yang membuka gambar fullscreen
+                            var parent = img.parentElement;
+                            if (parent && parent.tagName === 'A' && parent.href && parent.href.match(/pluginfile\.php/)) {
+                                parent.addEventListener('click', function(e) {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    // Toggle zoom inline
+                                    if (img.style.maxWidth === 'none') {
+                                        img.style.maxWidth = '100%';
+                                        img.style.transform = '';
+                                    } else {
+                                        img.style.maxWidth = 'none';
+                                        img.style.transform = 'scale(1)';
+                                    }
+                                }, true);
+                            }
+
+                            // Juga tangani klik langsung pada gambar tanpa wrapper link
+                            img.addEventListener('click', function(e) {
+                                if (img.style.maxWidth === 'none') {
+                                    img.style.maxWidth = '100%';
+                                    img.style.transform = '';
+                                } else {
+                                    img.style.maxWidth = 'none';
+                                    img.style.transform = 'scale(1)';
+                                }
+                            });
+                        });
+                    })();
+                """.trimIndent(), null)
             }
         }
 
@@ -1175,12 +1362,34 @@ private fun ConnectionErrorOverlay(
     }
 }
 
-private fun createExamWebChromeClient(viewModel: ExamViewModel): WebChromeClient {
+private fun createExamWebChromeClient(
+    viewModel: ExamViewModel,
+    onShowCustomView: (View, WebChromeClient.CustomViewCallback) -> Unit,
+    onHideCustomView: () -> Unit,
+): WebChromeClient {
     return object : WebChromeClient() {
 
         override fun onProgressChanged(view: WebView?, newProgress: Int) {
             super.onProgressChanged(view, newProgress)
             viewModel.onProgressChanged(newProgress)
+        }
+
+        // ── Fullscreen Custom View Handler (KRITIS untuk gambar soal Moodle) ──
+        // Tanpa handler ini, klik gambar di Moodle bisa membekukan layar
+        // terutama pada Oppo/Vivo (ColorOS/FuntouchOS) karena custom view
+        // menutupi seluruh layar tanpa tombol keluar.
+        override fun onShowCustomView(view: View?, callback: CustomViewCallback?) {
+            Log.d(TAG, "onShowCustomView: ${view?.javaClass?.simpleName}")
+            if (view != null && callback != null) {
+                onShowCustomView(view, callback)
+            } else {
+                callback?.onCustomViewHidden()
+            }
+        }
+
+        override fun onHideCustomView() {
+            Log.d(TAG, "onHideCustomView")
+            onHideCustomView()
         }
 
         // Blokir pemanggilan file chooser / upload dokumen untuk mencegah celah kecurangan

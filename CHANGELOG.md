@@ -7,6 +7,34 @@ dan proyek ini menggunakan [Semantic Versioning](https://semver.org/lang/id/).
 
 ---
 
+## [1.1.8] — 2026-11-21
+
+### 🛡️ Fix Freeze Gambar Soal (Oppo/Vivo) & Sinkronisasi PIN Proktor Dinamis
+
+#### Diperbaiki
+- **Bug Kritis: Klik Gambar Soal Membekukan Layar (Freeze)**:
+  - Ditemukan `WebChromeClient` tidak menghandle `onShowCustomView` / `onHideCustomView`. Ketika siswa mengetuk gambar soal di Moodle, lightbox/modal CSS memicu fullscreen custom view request tanpa handler, menyebabkan layar **terkunci total** (terutama di Oppo/Vivo dengan ColorOS/FuntouchOS).
+  - Solusi: Custom view sekarang ditangani dengan container `FrameLayout` + tombol close (✕) + tap-anywhere-to-dismiss + BackHandler. Siswa bisa keluar dari tampilan gambar besar dengan mengetuk tombol close, mengetuk area mana saja, atau menekan tombol back.
+- **Inject CSS/JS Anti-Freeze untuk Gambar Soal Moodle**:
+  - Menonaktifkan Moodle image lightbox (`M.util.image_lightbox`) yang bisa membekukan layar.
+  - Menyuntikkan CSS untuk membatasi modal backdrop dan ukuran gambar.
+  - Intercept klik pada gambar soal — klik gambar kini melakukan zoom inline (toggle max-width) alih-alih membuka URL gambar mentah fullscreen.
+  - Link wrapper `<a href="pluginfile.php/...">` pada gambar soal dicegat agar tidak navigasi ke halaman gambar mentah.
+
+#### Ditingkatkan
+- **Sinkronisasi PIN Proktor Berdasarkan Token Soal**:
+  - PIN Proktor kini otomatis disinkronkan setiap kali ada perubahan token soal (setiap 60 detik, mengikuti siklus pergantian token 15 menit).
+  - Dialog PIN menampilkan **status sinkronisasi realtime** (● Tersinkron Xm lalu / ● Belum tersinkron) beserta waktu terakhir sync berhasil.
+  - Tombol **"Sync PIN"** manual ditambahkan di dialog PIN — teknisi/proktor bisa memaksa tarik PIN terbaru dari server kapan saja.
+  - Jika PIN yang dimasukkan salah, aplikasi otomatis melakukan sync ulang ke server (mungkin PIN baru saja diubah di Moodle Control Panel).
+  - Pesan error PIN diperbarui: "PIN salah. Tekan Sync PIN jika baru diubah."
+
+#### Berkas APK
+- `CBT-SMAPRA-v1.1.8-Android8+-release.apk` (30.9 MB)
+- `CBT-SMAPRA-v1.1.8-Android5+-release.apk` (19.8 MB)
+
+---
+
 ## [1.1.7] — 2026-11-11
 
 ### 🚀 Optimasi Koneksi Awal & Perbaikan False Alarm "Koneksi Terputus"
